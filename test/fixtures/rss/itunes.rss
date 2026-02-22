@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>iTunes Test Feed</title>
+    <itunes:image href="https://example.com/cover.jpg" />
+    <language>en</language>
+    <item>
+      <title>iTunes Episode</title>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:image href="https://example.com/ep-cover.jpg" />
+      <enclosure url="https://example.com/ep1.mp3" length="12345678" type="audio/mpeg" />
+    </item>
+  </channel>
+</rss>

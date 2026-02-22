@@ -1,0 +1,14 @@
+[
+  {
+    "feed": "https://feeds.example.com/podcast1.xml",
+    "title": "Test Podcast 1",
+    "website": "https://example.com/podcast1",
+    "description": "First test podcast feed"
+  },
+  {
+    "feed": "https://feeds.example.com/podcast2.xml",
+    "title": "Test Podcast 2",
+    "website": "https://example.com/podcast2",
+    "description": "Second test podcast feed"
+  }
+]

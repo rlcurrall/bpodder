@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Minimal Test Podcast</title>
+    <link>https://example.com</link>
+    <description>A minimal RSS feed for testing</description>
+    <item>
+      <title>Episode 1</title>
+      <enclosure url="https://example.com/ep1.mp3" length="12345678" type="audio/mpeg" />
+      <pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

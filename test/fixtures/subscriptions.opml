@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<opml version="1.0">
+  <head>
+    <title>Test Feeds</title>
+  </head>
+  <body>
+    <outline type="rss" xmlUrl="https://feeds.example.com/podcast1.xml" title="Test Podcast 1" text="Test Podcast 1" htmlUrl="https://example.com/podcast1" description="First test podcast" />
+    <outline type="rss" xmlUrl="https://feeds.example.com/podcast2.xml" title="Test Podcast 2" text="Test Podcast 2" htmlUrl="https://example.com/podcast2" description="Second test podcast" />
+  </body>
+</opml>

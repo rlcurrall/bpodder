@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>CDATA Test Feed</title>
+    <item>
+      <title><![CDATA[Title with <special> & characters]]></title>
+      <description><![CDATA[Description with <b>HTML</b> & entities]]></description>
+      <enclosure url="https://example.com/ep1.mp3" />
+    </item>
+  </channel>
+</rss>
