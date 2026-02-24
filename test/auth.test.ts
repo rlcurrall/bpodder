@@ -63,27 +63,6 @@ describe("auth", () => {
     expect(res.status).toBe(200); // GPodder spec: always returns 200
   });
 
-  test("17. Unimplemented routes return 501", async () => {
-    // GPodder Advanced API v2 unimplemented endpoints
-    const routes = [
-      "/api/2/updates/alice/phone.json",
-      "/api/2/sync-devices/alice.json",
-      "/api/2/tags/alice.json",
-      "/api/2/favorites/alice.json",
-      "/api/2/settings/alice/account.json",
-      "/api/2/lists/alice/list.json",
-      // V1 Advanced API
-      "/api/1/subscriptions/alice/phone.json",
-      "/api/1/episodes/alice.json",
-      "/api/1/devices/alice/phone.json",
-    ];
-
-    for (const route of routes) {
-      const res = await alice.client.get(route);
-      expect(res.status).toBe(501);
-    }
-  });
-
   test("7. GET protected route with session cookie from login", async () => {
     const loginRes = await alice.client.post("/api/2/auth/alice/login.json");
     const sessionCookie = cookie(loginRes, "sessionid");

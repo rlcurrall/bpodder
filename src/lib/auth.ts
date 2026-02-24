@@ -6,7 +6,6 @@ export interface User {
   id: number;
   name: string;
   password: string;
-  token: string | null;
 }
 
 // LRU Cache for sessions
@@ -51,7 +50,7 @@ class LRUCache {
   }
 }
 
-export class SessionStore {
+export class SessionStore implements SessionStorage {
   private db: DB;
   private cache: LRUCache;
   private requestCount = 0;
@@ -139,124 +138,6 @@ export class SessionStore {
   }
 }
 
-// Poll token storage for NextCloud Login v2
-export class PollTokenStore {
-  private db: DB;
-
-  constructor(db: DB) {
-    this.db = db;
-  }
-
-  async create(baseUrl: string): Promise<{ token: string; loginUrl: string }> {
-    const token = crypto.randomUUID();
-    const tokenHash = await hashToken(token);
-    const now = Math.floor(Date.now() / 1000);
-    const expiresAt = now + 20 * 60; // 20 minutes
-
-    this.db.run(
-      "INSERT INTO poll_tokens (token_hash, user_id, created_at, expires_at, attempts) VALUES (?, NULL, ?, ?, 0)",
-      tokenHash,
-      now,
-      expiresAt,
-    );
-
-    return {
-      token,
-      loginUrl: `${baseUrl}/login?token=${encodeURIComponent(token)}`,
-    };
-  }
-
-  async poll(token: string): Promise<{
-    userId: number;
-    loginName: string;
-    appPassword: string;
-  } | null> {
-    const tokenHash = await hashToken(token);
-    const now = Math.floor(Date.now() / 1000);
-
-    const row = this.db.first<{
-      user_id: number | null;
-      expires_at: number;
-      attempts: number;
-    }>("SELECT user_id, expires_at, attempts FROM poll_tokens WHERE token_hash = ?", tokenHash);
-
-    if (!row) {
-      return null;
-    }
-
-    if (row.expires_at < now) {
-      this.db.run("DELETE FROM poll_tokens WHERE token_hash = ?", tokenHash);
-      return null;
-    }
-
-    if (row.user_id === null) {
-      // Not yet authenticated
-      const newAttempts = row.attempts + 1;
-      if (newAttempts >= 10) {
-        this.db.run("DELETE FROM poll_tokens WHERE token_hash = ?", tokenHash);
-      } else {
-        this.db.run(
-          "UPDATE poll_tokens SET attempts = ? WHERE token_hash = ?",
-          newAttempts,
-          tokenHash,
-        );
-      }
-      return null;
-    }
-
-    // User authenticated, generate app password
-    const user = this.db.first<{ name: string; password: string }>(
-      "SELECT name, password FROM users WHERE id = ?",
-      row.user_id,
-    );
-
-    if (!user) {
-      return null;
-    }
-
-    // Delete token (single-use)
-    this.db.run("DELETE FROM poll_tokens WHERE token_hash = ?", tokenHash);
-
-    // Generate app password: token:sha1(user_password_hash + token)
-    const encoder = new TextEncoder();
-    const data = encoder.encode(user.password + token);
-    const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-    const hashHex = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    const appPassword = `${token}:${hashHex}`;
-
-    return { userId: row.user_id, loginName: user.name, appPassword };
-  }
-
-  async authenticateToken(token: string, userId: number): Promise<boolean> {
-    const tokenHash = await hashToken(token);
-    const row = this.db.first<{ expires_at: number }>(
-      "SELECT expires_at FROM poll_tokens WHERE token_hash = ?",
-      tokenHash,
-    );
-
-    if (!row || row.expires_at < Math.floor(Date.now() / 1000)) {
-      return false;
-    }
-
-    // Only update user_id if it's a valid user (userId > 0)
-    if (userId > 0) {
-      this.db.run("UPDATE poll_tokens SET user_id = ? WHERE token_hash = ?", userId, tokenHash);
-    }
-    return true;
-  }
-}
-
-export async function hashToken(token: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 // Parse Basic auth header
 interface AuthCredentials {
   username: string;
@@ -283,28 +164,11 @@ function parseBasicAuth(header: string): AuthCredentials | null {
   }
 }
 
-// Verify NextCloud app password
-async function verifyAppPassword(user: User, providedPassword: string): Promise<boolean> {
-  // Format: token:sha1(user_password_hash + token)
-  const parts = providedPassword.split(":");
-  if (parts.length !== 2) return false;
-
-  const [token, providedHash] = parts;
-  const encoder = new TextEncoder();
-  const data = encoder.encode(user.password + token);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-  const computedHash = Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  return computedHash === providedHash.toLowerCase();
-}
-
 // Main auth function
 export async function requireAuth(
   req: Request,
-  db: DB,
-  sessions: SessionStore,
+  db: AppDatabase,
+  sessions: SessionStorage,
   requestedUsername?: string,
 ): Promise<User> {
   const authHeader = req.headers.get("Authorization");
@@ -325,45 +189,23 @@ export async function requireAuth(
     }
   }
 
-  // Try token auth or Basic auth
+  // Try Basic auth
   let basicUser: User | null = null;
 
   if (authHeader) {
     const creds = parseBasicAuth(authHeader);
     if (creds) {
-      // Check for token auth format: username__token
-      const tokenMatch = creds.username.match(/^(.+)__(.+)$/);
-      if (tokenMatch) {
-        const [, username, token] = tokenMatch;
-        const user = db.first<User>(
-          "SELECT id, name, password, token FROM users WHERE name = ?",
-          username,
-        );
+      // Standard Basic auth
+      const user = db.first<User>(
+        "SELECT id, name, password FROM users WHERE name = ?",
+        creds.username,
+      );
 
-        if (user && user.token === token) {
+      if (user) {
+        // Standard password verification
+        const verified = await Bun.password.verify(creds.password, user.password);
+        if (verified) {
           basicUser = user;
-        }
-      } else {
-        // Standard Basic auth
-        const user = db.first<User>(
-          "SELECT id, name, password, token FROM users WHERE name = ?",
-          creds.username,
-        );
-
-        if (user) {
-          // Try app password format first (NextCloud)
-          const isAppPassword = creds.password.includes(":");
-          if (isAppPassword) {
-            if (await verifyAppPassword(user, creds.password)) {
-              basicUser = user;
-            }
-          } else {
-            // Standard password verification
-            const verified = await Bun.password.verify(creds.password, user.password);
-            if (verified) {
-              basicUser = user;
-            }
-          }
         }
       }
     }
@@ -376,10 +218,7 @@ export async function requireAuth(
     authenticatedUser = basicUser;
   } else if (sessionUserId !== null) {
     // Load user from session
-    const user = db.first<User>(
-      "SELECT id, name, password, token FROM users WHERE id = ?",
-      sessionUserId,
-    );
+    const user = db.first<User>("SELECT id, name, password FROM users WHERE id = ?", sessionUserId);
     if (user) {
       authenticatedUser = user;
     }

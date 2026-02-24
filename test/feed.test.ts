@@ -109,7 +109,7 @@ describe("feed", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/alice_feed/phone.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{ add: string[] }>(getRes);
       expect(body.add).toContain(feedUrl);
     });
 
@@ -129,7 +129,7 @@ describe("feed", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/alice_feed/phone.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{ add: string[] }>(getRes);
       expect(body.add).toContain(feedUrl);
     });
 
@@ -149,7 +149,7 @@ describe("feed", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/alice_feed/phone.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{ add: string[] }>(getRes);
       expect(body.add).toContain(feedUrl);
     });
 
@@ -170,7 +170,7 @@ describe("feed", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/alice_feed/phone.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{ add: string[] }>(getRes);
       for (const feed of feeds) {
         expect(body.add).toContain(feed);
       }
@@ -266,7 +266,7 @@ describe("feed", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/alice_feed/phone.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{ add: string[] }>(getRes);
       expect(body.add).toContain(feedUrl);
     });
 
@@ -283,7 +283,7 @@ describe("feed", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/alice_feed/phone.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{ add: string[] }>(getRes);
       expect(body.add).toContain(feedUrl);
     });
   });

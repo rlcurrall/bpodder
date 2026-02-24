@@ -8,6 +8,7 @@
     "start": "bun run src/index.ts",
     "dev": "LOG_LEVEL=debug bun run --watch src/index.ts",
     "test": "bun test",
+    "build": "bun run build.ts",
     "update-feeds": "bun run src/index.ts --update-feeds",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",

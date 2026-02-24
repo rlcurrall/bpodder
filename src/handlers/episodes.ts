@@ -3,38 +3,23 @@ import { parseParam } from "../lib/params";
 import { json, error } from "../lib/response";
 import { EpisodePostBody, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
-import type { HandlerContext } from "./auth";
 
-function parseTimestamp(ts?: string): number {
-  if (!ts) {
-    return Math.floor(Date.now() / 1000);
-  }
-  const parsed = new Date(ts);
-  if (isNaN(parsed.getTime())) {
-    return Math.floor(Date.now() / 1000);
-  }
-  return Math.floor(parsed.getTime() / 1000);
-}
-
-function formatTimestamp(unix: number): string {
-  return new Date(unix * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
-export function createEpisodeHandlers(ctx: HandlerContext) {
+export function createEpisodeHandlers(ctx: AppContext): {
+  episodes: RouteDefinition<"/api/3/episodes/:username">;
+} {
   return {
-    // /api/2/episodes/:username → username = "alice.json"
-    episodes: async (req: Request & { params: { username: string } }): Promise<Response> => {
-      const rawUsername = req.params.username;
-      const { value: username } = parseParam(rawUsername);
+    episodes: {
+      async GET(req) {
+        const rawUsername = req.params.username;
+        const { value: username } = parseParam(rawUsername);
 
-      if (!username) {
-        return error("Invalid route", 404);
-      }
+        if (!username) {
+          return error("Invalid route", 404);
+        }
 
-      try {
-        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+        try {
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        if (req.method === "GET") {
           const url = new URL(req.url);
           let since = parseInt(url.searchParams.get("since") ?? "0", 10);
           if (isNaN(since)) since = 0;
@@ -149,10 +134,31 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
 
           const timestamp = Math.floor(Date.now() / 1000);
 
-          return json({ timestamp, actions, update_urls: [] });
+          return json({
+            timestamp,
+            actions,
+            update_urls: [],
+          });
+        } catch (e) {
+          if (e instanceof Response) return e;
+          if (e instanceof ZodError) {
+            return zodError(e);
+          }
+          ctx.logger.error({ err: e }, "Episodes handler error");
+          return error("Server error", 500);
+        }
+      },
+      async POST(req) {
+        const rawUsername = req.params.username;
+        const { value: username } = parseParam(rawUsername);
+
+        if (!username) {
+          return error("Invalid route", 404);
         }
 
-        if (req.method === "POST") {
+        try {
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+
           const rawBody = await req.json();
           const parseResult = EpisodePostBody.safeParse(rawBody);
 
@@ -167,7 +173,10 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
           const timestamp = Math.floor(Date.now() / 1000);
 
           if (actions.length === 0) {
-            return json({ timestamp, update_urls: [] });
+            return json({
+              timestamp,
+              update_urls: [],
+            });
           }
 
           const updateUrls: string[][] = [];
@@ -250,18 +259,43 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
             }
           });
 
-          return json({ timestamp, update_urls: updateUrls });
+          return json({
+            timestamp,
+            update_urls: updateUrls,
+          });
+        } catch (e) {
+          if (e instanceof Response) return e;
+          if (e instanceof ZodError) {
+            return zodError(e);
+          }
+          ctx.logger.error({ err: e }, "Episodes handler error");
+          return error("Server error", 500);
         }
-
-        return error("Method not allowed", 405);
-      } catch (e) {
-        if (e instanceof Response) return e;
-        if (e instanceof ZodError) {
-          return zodError(e);
-        }
-        ctx.logger.error({ err: e }, "Episodes handler error");
-        return error("Server error", 500);
-      }
+      },
     },
   };
+}
+
+function parseTimestamp(ts?: string | number): number {
+  if (ts === undefined || ts === null) {
+    return Math.floor(Date.now() / 1000);
+  }
+  // If it's already a number, treat it as Unix timestamp (seconds)
+  if (typeof ts === "number") {
+    return Math.floor(ts);
+  }
+  // If it's a string that looks like a number (Unix timestamp), parse it directly
+  if (/^\d+$/.test(ts)) {
+    return Math.floor(parseInt(ts, 10));
+  }
+  // Otherwise, try to parse as ISO 8601 date string
+  const parsed = new Date(ts);
+  if (isNaN(parsed.getTime())) {
+    return Math.floor(Date.now() / 1000);
+  }
+  return Math.floor(parsed.getTime() / 1000);
+}
+
+function formatTimestamp(unix: number): string {
+  return new Date(unix * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
 }

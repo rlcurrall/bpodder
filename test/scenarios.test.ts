@@ -276,82 +276,9 @@ describe("scenarios", () => {
         password: "password123",
       });
     });
-
-    test.skip("Token auth flow (requires token enable endpoint)", async () => {
-      // This test requires a token enable endpoint which may be web-UI only
-      // 1. Alice logs in with Basic auth
-      // 2. Enable token (via API or admin)
-      // 3. Retrieve token
-      // 4. Use token auth for subsequent requests
-      // 5. Verify subscriptions work
-    });
   });
 
-  describe("Scenario 5: NextCloud client full flow", () => {
-    let serverUrl: string;
-    let alice: TestUser;
-    let username: string;
-
-    beforeAll(async () => {
-      serverUrl = getServerUrl();
-      username = `scenario5_alice_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      alice = await createTestUser(serverUrl, {
-        username,
-        password: "password123",
-      });
-    });
-
-    test("Complete NextCloud client flow", async () => {
-      // 1. POST /index.php/login/v2
-      const initRes = await alice.client.post("/index.php/login/v2");
-      expect(initRes.status).toBe(200);
-      const initBody = await alice.client.json(initRes);
-      const pollToken = initBody.poll.token;
-      const loginUrl = new URL(initBody.login);
-      const loginToken = loginUrl.searchParams.get("token");
-
-      // 2. Authenticate via web UI login
-      const authClient = new Client(serverUrl).withBasicAuth(username, "password123");
-      const authRes = await authClient.post(
-        `/api/2/auth/${username}/login.json?token=${loginToken}`,
-      );
-      expect(authRes.status).toBe(200);
-
-      // 3. Poll for credentials (form-encoded per NextCloud spec)
-      const pollRes = await alice.client.postForm("/index.php/login/v2/poll", {
-        token: pollToken,
-      });
-      expect(pollRes.status).toBe(200);
-      const pollBody = await alice.client.json(pollRes);
-      const appPassword = pollBody.appPassword;
-
-      // 4. Verify appPassword format
-      expect(appPassword).toContain(":");
-
-      // 5. Use app password for episode actions
-      const ncClient = new Client(serverUrl).withBasicAuth(username, appPassword);
-      const epRes = await ncClient.post("/index.php/apps/gpoddersync/episode_action", [
-        {
-          podcast: "https://feeds.example.com/nextcloud-scenario.xml",
-          episode: "http://example.com/scenario5-ep1.mp3",
-          action: "download",
-        },
-      ]);
-      expect(epRes.status).toBe(200);
-
-      // 6. GET episode actions and verify
-      const getRes = await ncClient.get("/index.php/apps/gpoddersync/episode_action", {
-        since: "0",
-      });
-      expect(getRes.status).toBe(200);
-      const getBody = await ncClient.json(getRes);
-      expect(
-        getBody.actions.some((a: any) => a.episode === "http://example.com/scenario5-ep1.mp3"),
-      ).toBe(true);
-    });
-  });
-
-  describe("Scenario 6: Play position deduplication (bpodder extension)", () => {
+  describe("Scenario 5: Play position deduplication (bpodder extension)", () => {
     let serverUrl: string;
     let alice: TestUser;
     let username: string;
@@ -373,10 +300,57 @@ describe("scenarios", () => {
       });
     });
 
-    test.skip("Deduplication (bpodder-specific extension)", async () => {
-      // This test verifies bpodder's deduplication extension, not GPodder spec compliance
-      // If deduplication is implemented, this test should pass
-      // If not implemented (matching reference), this will fail and should be skipped
+    test("Deduplication (bpodder-specific extension)", async () => {
+      const podcastUrl = "http://dedup-scenario.example.com/feed.xml";
+      const episodeUrl = "http://dedup-scenario.example.com/ep1.mp3";
+
+      // Subscribe to podcast
+      await alice.client.post(`/api/2/subscriptions/${username}/phone.json`, {
+        add: [podcastUrl],
+        remove: [],
+      });
+
+      // Record actions from phone (play at position 100)
+      await alice.client.post(`/api/2/episodes/${username}.json`, [
+        {
+          podcast: podcastUrl,
+          episode: episodeUrl,
+          action: "play",
+          device: "phone",
+          position: 100,
+        },
+      ]);
+
+      // Record actions from tablet (play at position 250 - later)
+      await alice.client.post(`/api/2/episodes/${username}.json`, [
+        {
+          podcast: podcastUrl,
+          episode: episodeUrl,
+          action: "play",
+          device: "tablet",
+          position: 250,
+        },
+      ]);
+
+      // Without aggregation - should see both actions
+      const allRes = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+      });
+      const allBody = await alice.client.json<EpisodesResponse>(allRes);
+      const allActions = allBody.actions.filter((a: any) => a.episode === episodeUrl);
+      expect(allActions.length).toBe(2);
+
+      // With aggregation - should see only latest action (tablet at position 250)
+      const aggRes = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+        aggregated: "true",
+      });
+      const aggBody = await alice.client.json<EpisodesResponse>(aggRes);
+      const aggActions = aggBody.actions.filter((a: any) => a.episode === episodeUrl);
+      expect(aggActions.length).toBe(1);
+      expect(aggActions[0].action).toBe("play");
+      expect(aggActions[0].position).toBe(250);
+      expect(aggActions[0].device).toBe("tablet");
     });
   });
 });

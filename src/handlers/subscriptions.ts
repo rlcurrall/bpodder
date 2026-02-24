@@ -3,14 +3,27 @@ import { parseParam } from "../lib/params";
 import { json, empty, text, opml, error } from "../lib/response";
 import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
-import type { HandlerContext } from "./auth";
 
 function sanitizeUrl(url: string): { url: string; modified: boolean } {
   const trimmed = url.trim();
   return { url: trimmed, modified: trimmed !== url };
 }
 
-export function createSubscriptionHandlers(ctx: HandlerContext) {
+const opmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head>
+    <title>Subscriptions</title>
+  </head>
+  <body>
+`;
+
+export function createSubscriptionHandlers(ctx: AppContext): {
+  subscriptionsV2: RouteDefinition<"/api/2/subscriptions/:username/:deviceid">;
+  subscriptionsAll: RouteDefinition<"/api/2/subscriptions/:username">;
+  subscriptionsUserLevel: RouteDefinition<"/subscriptions/:username">;
+  subscriptionsDeviceLevel: RouteDefinition<"/subscriptions/:username/:deviceid">;
+  opml: RouteDefinition<"/opml/:username/:deviceid">;
+} {
   // Shared logic for adding subscriptions
   function addSubscriptions(userId: number, urls: string[], timestamp: number): void {
     for (const url of urls) {
@@ -65,13 +78,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
       userId,
     );
 
-    let opmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<opml version="1.0">
-  <head>
-    <title>Subscriptions</title>
-  </head>
-  <body>
-`;
+    let opmlContent = opmlHeader;
 
     for (const sub of subs) {
       let title = sub.url;
@@ -90,27 +97,23 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
       opmlContent += `    <outline type="rss" xmlUrl="${escapedUrl}" title="${escapedTitle}" text="${escapedTitle}" />\n`;
     }
 
-    opmlContent += `  </body>
-</opml>
-`;
+    opmlContent += `  </body>\n</opml>\n`;
     return opmlContent;
   }
 
   return {
     // V2 delta sync: GET|POST /api/2/subscriptions/:username/:deviceid
-    subscriptionsV2: async (
-      req: Request & { params: { username: string; deviceid: string } },
-    ): Promise<Response> => {
-      const username = req.params.username;
-      const { value: deviceid } = parseParam(req.params.deviceid);
+    subscriptionsV2: {
+      async GET(req) {
+        const username = req.params.username;
+        const { value: deviceid } = parseParam(req.params.deviceid);
 
-      try {
-        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+        try {
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        // Auto-create device if it doesn't exist (per GPodder API spec)
-        ensureDevice(user.id, deviceid);
+          // Auto-create device if it doesn't exist (per GPodder API spec)
+          ensureDevice(user.id, deviceid);
 
-        if (req.method === "GET") {
           const url = new URL(req.url);
           const since = parseInt(url.searchParams.get("since") ?? "0", 10) || 0;
 
@@ -136,9 +139,28 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
           const timestamp = Math.floor(Date.now() / 1000);
           return json({ add, remove, timestamp, update_urls: [] });
-        }
 
-        if (req.method === "POST") {
+          return error("Method not allowed", 405);
+        } catch (e) {
+          if (e instanceof Response) return e;
+          if (e instanceof ZodError) {
+            return zodError(e);
+          }
+          ctx.logger.error({ err: e }, "V2 subscriptions handler error");
+          return error("Server error", 500);
+        }
+      },
+
+      async POST(req) {
+        const username = req.params.username;
+        const { value: deviceid } = parseParam(req.params.deviceid);
+
+        try {
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+
+          // Auto-create device if it doesn't exist (per GPodder API spec)
+          ensureDevice(user.id, deviceid);
+
           const rawBody = await req.json();
           const parseResult = SubscriptionChangeBody.safeParse(rawBody);
 
@@ -224,79 +246,67 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           });
 
           return json({ timestamp, update_urls: updateUrls });
+        } catch (e) {
+          if (e instanceof Response) return e;
+          if (e instanceof ZodError) {
+            return zodError(e);
+          }
+          ctx.logger.error({ err: e }, "V2 subscriptions handler error");
+          return error("Server error", 500);
         }
-
-        return error("Method not allowed", 405);
-      } catch (e) {
-        if (e instanceof Response) return e;
-        if (e instanceof ZodError) {
-          return zodError(e);
-        }
-        ctx.logger.error({ err: e }, "V2 subscriptions handler error");
-        return error("Server error", 500);
-      }
+      },
     },
 
     // V2.11 all subscriptions: GET /api/2/subscriptions/:username
-    subscriptionsAll: async (
-      req: Request & { params: { username: string } },
-    ): Promise<Response> => {
-      if (req.method !== "GET") {
-        return error("Method not allowed", 405);
-      }
+    subscriptionsAll: {
+      async GET(req) {
+        try {
+          const { value: username } = parseParam(req.params.username);
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-      try {
-        const { value: username } = parseParam(req.params.username);
-        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+          const subs = ctx.db.all<{ url: string }>(
+            "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
+            user.id,
+          );
 
-        const subs = ctx.db.all<{ url: string }>(
-          "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
-          user.id,
-        );
-
-        return json(subs.map((s) => s.url));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "All subscriptions handler error");
-        return error("Server error", 500);
-      }
+          return json(subs.map((s) => s.url));
+        } catch (e) {
+          if (e instanceof Response) return e;
+          ctx.logger.error({ err: e }, "All subscriptions handler error");
+          return error("Server error", 500);
+        }
+      },
     },
 
     // Simple API user-level: GET /subscriptions/:username (returns .json or .opml)
-    subscriptionsUserLevel: async (
-      req: Request & { params: { username: string } },
-    ): Promise<Response> => {
-      if (req.method !== "GET") {
-        return error("Method not allowed", 405);
-      }
+    subscriptionsUserLevel: {
+      async GET(req) {
+        try {
+          const { value: username, ext } = parseParam(req.params.username);
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-      try {
-        const { value: username, ext } = parseParam(req.params.username);
-        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+          if (ext === "opml") {
+            return opml(buildOPML(user.id));
+          }
 
-        if (ext === "opml") {
-          return opml(buildOPML(user.id));
+          // Default to JSON array
+          const subs = ctx.db.all<{ url: string }>(
+            "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
+            user.id,
+          );
+
+          return json(subs.map((s) => s.url));
+        } catch (e) {
+          if (e instanceof Response) return e;
+          ctx.logger.error({ err: e }, "User-level subscriptions handler error");
+          return error("Server error", 500);
         }
-
-        // Default to JSON array
-        const subs = ctx.db.all<{ url: string }>(
-          "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
-          user.id,
-        );
-
-        return json(subs.map((s) => s.url));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "User-level subscriptions handler error");
-        return error("Server error", 500);
-      }
+      },
     },
 
     // Simple API device-level: GET|PUT /subscriptions/:username/:deviceid
     subscriptionsDeviceLevel: {
-      GET: async (
-        req: Request & { params: { username: string; deviceid: string } },
-      ): Promise<Response> => {
+      async GET(req) {
         const rawUsername = req.params.username;
         const rawDeviceid = req.params.deviceid;
         const { value: username } = parseParam(rawUsername);
@@ -340,9 +350,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
         }
       },
 
-      PUT: async (
-        req: Request & { params: { username: string; deviceid: string } },
-      ): Promise<Response> => {
+      async PUT(req) {
         const rawUsername = req.params.username;
         const rawDeviceid = req.params.deviceid;
         const { value: username } = parseParam(rawUsername);
@@ -395,38 +403,34 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
     },
 
     // Legacy OPML export handler (routes still point here)
-    opml: async (
-      req: Request & { params: { username: string; deviceid?: string } },
-    ): Promise<Response> => {
-      if (req.method !== "GET") {
-        return error("Method not allowed", 405);
-      }
+    opml: {
+      async GET(req) {
+        try {
+          const rawUsername = req.params.username;
+          const rawDeviceid = req.params.deviceid;
+          const { value: username } = parseParam(rawUsername);
+          const { value: deviceid } = rawDeviceid ? parseParam(rawDeviceid) : { value: "" };
 
-      try {
-        const rawUsername = req.params.username;
-        const rawDeviceid = req.params.deviceid;
-        const { value: username } = parseParam(rawUsername);
-        const { value: deviceid } = rawDeviceid ? parseParam(rawDeviceid) : { value: "" };
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
-
-        if (deviceid) {
-          const device = ctx.db.first<{ id: number }>(
-            "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
-            user.id,
-            deviceid,
-          );
-          if (!device) {
-            return error("Device not found", 404);
+          if (deviceid) {
+            const device = ctx.db.first<{ id: number }>(
+              "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
+              user.id,
+              deviceid,
+            );
+            if (!device) {
+              return error("Device not found", 404);
+            }
           }
-        }
 
-        return opml(buildOPML(user.id));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "OPML handler error");
-        return error("Server error", 500);
-      }
+          return opml(buildOPML(user.id));
+        } catch (e) {
+          if (e instanceof Response) return e;
+          ctx.logger.error({ err: e }, "OPML handler error");
+          return error("Server error", 500);
+        }
+      },
     },
   };
 }

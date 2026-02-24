@@ -63,7 +63,7 @@ export const EpisodeAction = z
     podcast: z.string().min(1, "Missing required field: podcast"),
     episode: z.string().min(1, "Missing required field: episode"),
     action: z.string().min(1, "Missing required field: action"),
-    timestamp: z.string().optional(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
     position: z.number().optional(),
     started: z.number().optional(),
     total: z.number().optional(),
@@ -83,7 +83,7 @@ export const EpisodeAction = z
         action: z.enum(validActions, {
           message: `Invalid action: must be one of ${validActions.join(", ")}`,
         }),
-        timestamp: z.string().optional(),
+        timestamp: z.union([z.string(), z.number()]).optional(),
         position: z.number().optional(),
         started: z.number().optional(),
         total: z.number().optional(),

@@ -1,6 +1,5 @@
 import { Database, Statement } from "bun:sqlite";
-import { readdirSync, readFileSync } from "fs";
-import { join } from "path";
+import { migrations } from "./migrations";
 
 export function createDB(path: string): DB {
   const db = new Database(path);
@@ -11,7 +10,7 @@ export function createDB(path: string): DB {
   return new DB(db);
 }
 
-export class DB {
+export class DB implements AppDatabase {
   private db: Database;
   private statements: Map<string, Statement> = new Map();
 
@@ -95,65 +94,32 @@ export class DB {
 }
 
 export function runMigrations(db: Database): void {
-  // Get current version
-  const result = db.query("PRAGMA user_version").get() as {
-    user_version: number;
-  };
-  const currentVersion = result.user_version;
+  // Create migrations tracking table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
 
-  // Read schema.sql for initial setup (version 1)
-  if (currentVersion === 0) {
-    const schemaPath = join(import.meta.dir, "schema.sql");
-    try {
-      const schema = readFileSync(schemaPath, "utf-8");
-      db.run(schema);
-      // Set version to 1 so migrations 1+ don't run on fresh databases
-      // (schema.sql already includes all schema changes up to version 1)
-      db.run("PRAGMA user_version = 1");
-    } catch (error) {
-      console.error("Failed to load schema.sql:", error);
-      throw error;
-    }
-  }
-
-  // Look for numbered migration files
-  const migrationsDir = join(import.meta.dir, "migrations");
-  let migrations: { version: number; path: string }[] = [];
-
-  try {
-    const files = readdirSync(migrationsDir);
-    migrations = files
-      .filter((f) => f.endsWith(".sql"))
-      .map((f) => {
-        const match = f.match(/^(\d+)_.*\.sql$/);
-        if (match) {
-          return {
-            version: parseInt(match[1], 10),
-            path: join(migrationsDir, f),
-          };
-        }
-        return null;
-      })
-      .filter((m): m is { version: number; path: string } => m !== null)
-      .sort((a, b) => a.version - b.version);
-  } catch {
-    // Migrations directory doesn't exist or is empty
-  }
+  // Get list of already applied migrations
+  const applied = new Set(
+    (db.query("SELECT name FROM _migrations").all() as { name: string }[]).map((r) => r.name),
+  );
 
   // Run pending migrations
   for (const migration of migrations) {
-    if (migration.version > currentVersion) {
-      const sql = readFileSync(migration.path, "utf-8");
-      db.run("BEGIN IMMEDIATE");
-      try {
-        db.run(sql);
-        db.run(`PRAGMA user_version = ${migration.version}`);
-        db.run("COMMIT");
-      } catch (error) {
-        db.run("ROLLBACK");
-        console.error(`Migration ${migration.version} failed:`, error);
-        throw error;
-      }
+    if (applied.has(migration.name)) continue;
+
+    db.run("BEGIN IMMEDIATE");
+    try {
+      migration.up(db);
+      db.run("INSERT INTO _migrations (name) VALUES (?)", [migration.name]);
+      db.run("COMMIT");
+    } catch (error) {
+      db.run("ROLLBACK");
+      console.error(`Migration "${migration.name}" failed:`, error);
+      throw error;
     }
   }
 }

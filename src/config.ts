@@ -46,22 +46,6 @@ function loadOrGenerateCaptchaSecret(dataRoot: string): string {
 
 const dataRoot = rawEnv.DATA_ROOT;
 
-export interface Config {
-  port: number;
-  host: string;
-  dataRoot: string;
-  dbFile: string;
-  baseUrl: string;
-  enableRegistration: boolean;
-  title: string;
-  karadavUrl: string | null;
-  disableUi: boolean;
-  maxBodySize: number;
-  captchaSecret: string;
-  logLevel: "debug" | "info" | "warn" | "error" | "silent";
-  logFormat: "json" | "pretty";
-}
-
 export const config: Config = {
   port: rawEnv.PORT,
   host: rawEnv.HOST,
