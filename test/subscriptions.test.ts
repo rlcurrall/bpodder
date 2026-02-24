@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeAll } from "bun:test";
+
+import { Client } from "./helpers/client";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
-import { Client } from "./helpers/client";
 
 const urlA = "https://feeds.example.com/feedA.xml";
 const urlB = "https://feeds.example.com/feedB.xml";

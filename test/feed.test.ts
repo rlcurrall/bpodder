@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+
+import { startMockRssServer, type MockRssServer } from "./helpers/mock-rss";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
-import { startMockRssServer, type MockRssServer } from "./helpers/mock-rss";
 
 describe("feed", () => {
   let serverUrl: string;

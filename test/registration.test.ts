@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { getServerUrl } from "./helpers/server";
+
 import { Client } from "./helpers/client";
+import { getServerUrl } from "./helpers/server";
 
 describe("registration", () => {
   let serverUrl: string;

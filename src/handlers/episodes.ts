@@ -1,8 +1,9 @@
+import { ZodError } from "zod";
+
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { json, error } from "../lib/response";
 import { EpisodePostBody, zodError } from "../lib/schemas";
-import { ZodError } from "zod";
 
 export function createEpisodeHandlers(ctx: AppContext): {
   episodes: RouteDefinition<"/api/3/episodes/:username">;

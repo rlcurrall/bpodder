@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeAll } from "bun:test";
+
+import { Client, cookie } from "./helpers/client";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
-import { Client, cookie } from "./helpers/client";
 
 describe("auth", () => {
   let serverUrl: string;

@@ -1,13 +1,14 @@
+import { ZodError } from "zod";
+
 import { requireAuth, createSessionCookie, clearSessionCookie } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { json, error } from "../lib/response";
 import { RegisterBody, zodError } from "../lib/schemas";
-import { ZodError } from "zod";
 
 export function createAuthHandlers(ctx: AppContext): {
   auth: RouteDefinition<"/api/2/auth/:username/:action">;
   register: RouteDefinition<"/register">;
-  health: RouteHandler<"/health">;
+  health: RouteDefinition<"/health">;
 } {
   return {
     // /api/2/auth/:username/:action → action = "login.json" | "logout.json"

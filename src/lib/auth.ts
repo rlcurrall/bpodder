@@ -1,4 +1,5 @@
 import type { DB } from "../db";
+
 import { error } from "./response";
 
 // User type returned by requireAuth

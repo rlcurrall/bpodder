@@ -1,8 +1,9 @@
+import { ZodError } from "zod";
+
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { json, empty, text, opml, error } from "../lib/response";
 import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl, zodError } from "../lib/schemas";
-import { ZodError } from "zod";
 
 function sanitizeUrl(url: string): { url: string; modified: boolean } {
   const trimmed = url.trim();

@@ -1,13 +1,15 @@
 import { serve } from "bun";
-import { createDB } from "./db";
+
 import { config } from "./config";
-import { SessionStore } from "./lib/auth";
-import { createLogger } from "./lib/logger";
+import { createDB } from "./db";
 import { createAuthHandlers } from "./handlers/auth";
 import { createDeviceHandlers } from "./handlers/devices";
-import { createSubscriptionHandlers } from "./handlers/subscriptions";
 import { createEpisodeHandlers } from "./handlers/episodes";
-import { createDefaultHandler, createLoggingMiddleware } from "./lib/routing";
+import { createSubscriptionHandlers } from "./handlers/subscriptions";
+import { SessionStore } from "./lib/auth";
+import { createLogger } from "./lib/logger";
+import { createDefaultHandler } from "./lib/routing";
+import { createLoggingMiddleware } from "./middleware/logging-middleware";
 
 export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const db = createDB(cfg.dbFile);
@@ -43,7 +45,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       // V2.11 all-devices subscription list (no deviceid)
       "/api/2/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsAll),
 
-      // Simple API — single handler, extension parsed from param
+      // Simple API — single handler
       "/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsUserLevel),
       "/subscriptions/:username/:deviceid": loggingMiddleware(
         subscriptions.subscriptionsDeviceLevel,
@@ -57,6 +59,10 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
     },
 
     fetch: defaultHandler,
+    error: (err) => {
+      logger.error({ err }, "Unhandled error in request handler");
+      return new Response("Internal Server Error", { status: 500 });
+    },
   });
 
   // Graceful shutdown

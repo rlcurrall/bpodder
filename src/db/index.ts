@@ -1,4 +1,5 @@
 import { Database, Statement } from "bun:sqlite";
+
 import { migrations } from "./migrations";
 
 export function createDB(path: string): DB {
