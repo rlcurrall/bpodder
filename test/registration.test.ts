@@ -22,7 +22,9 @@ describe("registration", () => {
     expect(res.status).toBe(200);
 
     // Verify user can log in with Basic auth
-    const loginRes = await client.withBasicAuth(username, "password123").post(`/api/2/auth/${username}/login.json`);
+    const loginRes = await client
+      .withBasicAuth(username, "password123")
+      .post(`/api/2/auth/${username}/login.json`);
     expect(loginRes.status).toBe(200);
     expect(loginRes.headers.get("Set-Cookie")).toContain("sessionid=");
   });
@@ -128,7 +130,9 @@ describe("registration", () => {
     });
 
     // Login with Basic auth
-    const loginRes = await client.withBasicAuth(username, "password123").post(`/api/2/auth/${username}/login.json`);
+    const loginRes = await client
+      .withBasicAuth(username, "password123")
+      .post(`/api/2/auth/${username}/login.json`);
     expect(loginRes.status).toBe(200);
     const sessionCookie = loginRes.headers.get("Set-Cookie");
 

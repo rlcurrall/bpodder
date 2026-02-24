@@ -70,7 +70,7 @@ describe("opml", () => {
     // URL should be XML-escaped in the attribute (with &amp;)
     expect(body).toContain('xmlUrl="https://example.com/feed?a=1&amp;b=2"');
     // Raw unescaped & in query string should not appear
-    expect(body).not.toContain('?a=1&b=2');
+    expect(body).not.toContain("?a=1&b=2");
   });
 
   test("4. OPML Content-Type header is text/x-opml", async () => {

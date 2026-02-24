@@ -24,33 +24,45 @@ describe("scenarios", () => {
 
     test("Full AntennaPod sync flow", async () => {
       // 1. Device already created via createTestUser - now add device
-      const deviceRes = await alice.client.post(`/api/2/devices/${username}/antennapod-pixel8.json`, {
-        caption: "Pixel 8",
-        type: "mobile",
-      });
+      const deviceRes = await alice.client.post(
+        `/api/2/devices/${username}/antennapod-pixel8.json`,
+        {
+          caption: "Pixel 8",
+          type: "mobile",
+        },
+      );
       expect(deviceRes.status).toBe(200);
 
       // 2. GET subscriptions since=0 → empty
-      const initialSubs = await alice.client.get(`/api/2/subscriptions/${username}/antennapod-pixel8.json`, {
-        since: "0",
-      });
+      const initialSubs = await alice.client.get(
+        `/api/2/subscriptions/${username}/antennapod-pixel8.json`,
+        {
+          since: "0",
+        },
+      );
       expect(initialSubs.status).toBe(200);
       const initialBody = await alice.client.json(initialSubs);
       expect(initialBody.add).toEqual([]);
 
       // 3. POST add 3 feeds
-      const addRes = await alice.client.post(`/api/2/subscriptions/${username}/antennapod-pixel8.json`, {
-        add: [url1, url2, url3],
-        remove: [],
-      });
+      const addRes = await alice.client.post(
+        `/api/2/subscriptions/${username}/antennapod-pixel8.json`,
+        {
+          add: [url1, url2, url3],
+          remove: [],
+        },
+      );
       expect(addRes.status).toBe(200);
       const addBody = await alice.client.json(addRes);
       const T1 = addBody.timestamp;
 
       // 4. GET since=T1 → includes all 3 (inclusive)
-      const verifySubs = await alice.client.get(`/api/2/subscriptions/${username}/antennapod-pixel8.json`, {
-        since: String(T1),
-      });
+      const verifySubs = await alice.client.get(
+        `/api/2/subscriptions/${username}/antennapod-pixel8.json`,
+        {
+          since: String(T1),
+        },
+      );
       const verifyBody = await alice.client.json(verifySubs);
       expect(verifyBody.add).toContain(url1);
       expect(verifyBody.add).toContain(url2);
@@ -90,18 +102,24 @@ describe("scenarios", () => {
       expect(actionsForEp1.some((a: any) => a.action === "play")).toBe(true);
 
       // 7. POST remove url1
-      const removeRes = await alice.client.post(`/api/2/subscriptions/${username}/antennapod-pixel8.json`, {
-        add: [],
-        remove: [url1],
-      });
+      const removeRes = await alice.client.post(
+        `/api/2/subscriptions/${username}/antennapod-pixel8.json`,
+        {
+          add: [],
+          remove: [url1],
+        },
+      );
       expect(removeRes.status).toBe(200);
       const removeBody = await alice.client.json(removeRes);
       const T3 = removeBody.timestamp;
 
       // 8. GET since=T3 → remove contains url1
-      const finalSubs = await alice.client.get(`/api/2/subscriptions/${username}/antennapod-pixel8.json`, {
-        since: String(T3),
-      });
+      const finalSubs = await alice.client.get(
+        `/api/2/subscriptions/${username}/antennapod-pixel8.json`,
+        {
+          since: String(T3),
+        },
+      );
       const finalBody = await alice.client.json(finalSubs);
       expect(finalBody.remove).toContain(url1);
     });
@@ -172,7 +190,9 @@ describe("scenarios", () => {
         since: "0",
       });
       const tabletBody = await alice.client.json(tabletEps);
-      const playActions = tabletBody.actions.filter((a: any) => a.episode === epX && a.action === "play");
+      const playActions = tabletBody.actions.filter(
+        (a: any) => a.episode === epX && a.action === "play",
+      );
       expect(playActions.length).toBeGreaterThanOrEqual(1);
       expect(playActions[0].device).toBe("phone");
     });
@@ -295,7 +315,9 @@ describe("scenarios", () => {
 
       // 2. Authenticate via web UI login
       const authClient = new Client(serverUrl).withBasicAuth(username, "password123");
-      const authRes = await authClient.post(`/api/2/auth/${username}/login.json?token=${loginToken}`);
+      const authRes = await authClient.post(
+        `/api/2/auth/${username}/login.json?token=${loginToken}`,
+      );
       expect(authRes.status).toBe(200);
 
       // 3. Poll for credentials (form-encoded per NextCloud spec)
@@ -319,10 +341,14 @@ describe("scenarios", () => {
       expect(epRes.status).toBe(200);
 
       // 6. GET episode actions and verify
-      const getRes = await ncClient.get("/index.php/apps/gpoddersync/episode_action", { since: "0" });
+      const getRes = await ncClient.get("/index.php/apps/gpoddersync/episode_action", {
+        since: "0",
+      });
       expect(getRes.status).toBe(200);
       const getBody = await ncClient.json(getRes);
-      expect(getBody.actions.some((a: any) => a.episode === "http://example.com/scenario5-ep1.mp3")).toBe(true);
+      expect(
+        getBody.actions.some((a: any) => a.episode === "http://example.com/scenario5-ep1.mp3"),
+      ).toBe(true);
     });
   });
 

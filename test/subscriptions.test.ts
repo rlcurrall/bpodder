@@ -28,7 +28,9 @@ describe("subscriptions", () => {
 
   describe("Basic sync", () => {
     test("1. GET since=0, no subscriptions", async () => {
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       expect(res.status).toBe(200);
       const body = await alice.client.json(res);
       expect(body.add).toEqual([]);
@@ -49,7 +51,9 @@ describe("subscriptions", () => {
     });
 
     test("3. GET since=0 contains urlA", async () => {
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlA);
       expect(body.remove).not.toContain(urlA);
@@ -65,7 +69,9 @@ describe("subscriptions", () => {
       const T1 = addBody.timestamp;
 
       // Query since T1 - should include urlA (inclusive)
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: String(T1) });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: String(T1),
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlA);
     });
@@ -78,7 +84,9 @@ describe("subscriptions", () => {
       expect(res.status).toBe(200);
 
       // Should still only have one urlA
-      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(getRes);
       const urlACount = body.add.filter((u: string) => u === urlA).length;
       expect(urlACount).toBe(1);
@@ -95,7 +103,9 @@ describe("subscriptions", () => {
     });
 
     test("7. GET since=0 after remove", async () => {
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.remove).toContain(urlA);
       expect(body.add).not.toContain(urlA);
@@ -107,14 +117,19 @@ describe("subscriptions", () => {
         add: [urlA],
         remove: [],
       });
-      const removeRes = await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
-        add: [],
-        remove: [urlA],
-      });
+      const removeRes = await alice.client.post(
+        `/api/2/subscriptions/${username}/${deviceId}.json`,
+        {
+          add: [],
+          remove: [urlA],
+        },
+      );
       const removeBody = await alice.client.json(removeRes);
       const T2 = removeBody.timestamp;
 
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: String(T2) });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: String(T2),
+      });
       const body = await alice.client.json(res);
       expect(body.remove).toContain(urlA);
     });
@@ -128,7 +143,9 @@ describe("subscriptions", () => {
     });
 
     test("10. GET since=0 after re-add", async () => {
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlA);
       // urlA should not be in remove anymore (or if it is, it's from old timestamp)
@@ -140,7 +157,9 @@ describe("subscriptions", () => {
         remove: [],
       });
 
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlB);
       expect(body.add).toContain(urlC);
@@ -179,7 +198,9 @@ describe("subscriptions", () => {
       });
       expect(res.status).toBe(200);
 
-      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(getRes);
       const urlACount = body.add.filter((u: string) => u === urlA).length;
       expect(urlACount).toBe(1);
@@ -245,7 +266,9 @@ describe("subscriptions", () => {
         remove: [],
       });
 
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlA);
       expect(body.add).toContain(urlB);
@@ -280,11 +303,16 @@ describe("subscriptions", () => {
     test("20. PUT JSON array [urlA, urlB] with no prior subs", async () => {
       // Note: tests are not isolated, so we don't know state
       // Just verify PUT succeeds and adds URLs
-      const res = await alice.client.put(`/subscriptions/${username}/${deviceId}.json`, [urlA, urlB]);
+      const res = await alice.client.put(`/subscriptions/${username}/${deviceId}.json`, [
+        urlA,
+        urlB,
+      ]);
       expect(res.status).toBe(200);
 
       // Verify URLs were added
-      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(getRes);
       expect(body.add).toContain(urlA);
       expect(body.add).toContain(urlB);
@@ -298,7 +326,9 @@ describe("subscriptions", () => {
       await alice.client.put(`/subscriptions/${username}/${deviceId}.json`, [urlC]);
 
       // All three should exist (PUT is additive, not replace)
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlA);
       expect(body.add).toContain(urlB);
@@ -313,7 +343,9 @@ describe("subscriptions", () => {
       await alice.client.put(`/subscriptions/${username}/${deviceId}.json`, []);
 
       // urlA should still exist
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(urlA);
     });
@@ -324,17 +356,24 @@ describe("subscriptions", () => {
       ]);
       expect(res.status).toBe(200);
 
-      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(getRes);
       expect(body.add).toContain("https://feeds.example.com/object-format.xml");
     });
 
     test("24. PUT text/plain body with newline-separated URLs", async () => {
       const plainTextUrls = `https://feeds.example.com/txt1.xml\nhttps://feeds.example.com/txt2.xml`;
-      const res = await alice.client.put(`/subscriptions/${username}/${deviceId}.txt`, plainTextUrls);
+      const res = await alice.client.put(
+        `/subscriptions/${username}/${deviceId}.txt`,
+        plainTextUrls,
+      );
       expect(res.status).toBe(200);
 
-      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(getRes);
       expect(body.add).toContain("https://feeds.example.com/txt1.xml");
       expect(body.add).toContain("https://feeds.example.com/txt2.xml");
@@ -407,10 +446,15 @@ describe("subscriptions", () => {
 
     test("29. PUT .txt with newline-separated URLs", async () => {
       const plainTextUrls = `https://feeds.example.com/txt-test.xml`;
-      const res = await alice.client.put(`/subscriptions/${username}/${deviceId}.txt`, plainTextUrls);
+      const res = await alice.client.put(
+        `/subscriptions/${username}/${deviceId}.txt`,
+        plainTextUrls,
+      );
       expect(res.status).toBe(200);
 
-      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(getRes);
       expect(body.add).toContain("https://feeds.example.com/txt-test.xml");
     });

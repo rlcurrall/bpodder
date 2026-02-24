@@ -7,8 +7,7 @@ export const json = (data: unknown, status = 200): Response =>
     headers: { "Content-Type": "application/json", ...CORS },
   });
 
-export const empty = (status = 200): Response =>
-  new Response("", { status, headers: CORS });
+export const empty = (status = 200): Response => new Response("", { status, headers: CORS });
 
 export const error = (message: string, status: number): Response =>
   new Response(JSON.stringify({ code: status, message }), {

@@ -10,9 +10,7 @@ export interface MockFixture {
   delay?: number;
 }
 
-export function startMockRssServer(
-  fixtures: Record<string, MockFixture | string>
-): MockRssServer {
+export function startMockRssServer(fixtures: Record<string, MockFixture | string>): MockRssServer {
   const server = Bun.serve({
     port: 0,
     async fetch(req) {
@@ -21,15 +19,13 @@ export function startMockRssServer(
       if (!fixture) {
         return new Response("Not Found", { status: 404 });
       }
-      
-      const config: MockFixture = typeof fixture === "string"
-        ? { body: fixture }
-        : fixture;
-      
+
+      const config: MockFixture = typeof fixture === "string" ? { body: fixture } : fixture;
+
       if (config.delay) {
         await Bun.sleep(config.delay);
       }
-      
+
       return new Response(config.body, {
         status: config.status ?? 200,
         headers: { "Content-Type": config.contentType ?? "application/rss+xml" },

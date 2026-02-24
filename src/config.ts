@@ -10,7 +10,10 @@ const envSchema = z.object({
   BASE_URL: z.string().default(""),
   ENABLE_REGISTRATION: z.coerce.boolean().default(false),
   TITLE: z.string().default("bpodder"),
-  KARADAV_URL: z.string().nullish().transform(v => v ?? null),
+  KARADAV_URL: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
   DISABLE_UI: z.coerce.boolean().default(false),
   MAX_BODY_SIZE: z.coerce.number().default(5_242_880),
   CAPTCHA_SECRET: z.string().optional(),
@@ -29,9 +32,9 @@ function loadOrGenerateCaptchaSecret(dataRoot: string): string {
     if (secret) return secret;
   }
 
-  const secret = Array.from({ length: 64 }, () =>
-    Math.floor(Math.random() * 16).toString(16),
-  ).join("");
+  const secret = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(
+    "",
+  );
 
   if (!existsSync(dataRoot)) {
     mkdirSync(dataRoot, { recursive: true });

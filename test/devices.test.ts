@@ -10,7 +10,10 @@ describe("devices", () => {
   beforeAll(async () => {
     serverUrl = getServerUrl();
     // Use unique username to avoid cross-test contamination
-    alice = await createTestUser(serverUrl, { username: `alice_devices_${Date.now()}`, password: "password123" });
+    alice = await createTestUser(serverUrl, {
+      username: `alice_devices_${Date.now()}`,
+      password: "password123",
+    });
   });
 
   test("1. GET devices — no devices yet", async () => {

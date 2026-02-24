@@ -24,9 +24,7 @@ function formatTimestamp(unix: number): string {
 export function createEpisodeHandlers(ctx: HandlerContext) {
   return {
     // /api/2/episodes/:username → username = "alice.json"
-    episodes: async (
-      req: Request & { params: { username: string } }
-    ): Promise<Response> => {
+    episodes: async (req: Request & { params: { username: string } }): Promise<Response> => {
       const rawUsername = req.params.username;
       const { value: username } = parseParam(rawUsername);
 
@@ -180,7 +178,7 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
               // Sanitize URLs - trim whitespace and track rewrites
               const sanitizedPodcast = action.podcast.trim();
               const sanitizedEpisode = action.episode.trim();
-              
+
               if (sanitizedPodcast !== action.podcast) {
                 updateUrls.push([action.podcast, sanitizedPodcast]);
               }
@@ -191,7 +189,7 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
               let subscription = ctx.db.first<{ id: number }>(
                 "SELECT id FROM subscriptions WHERE user = ? AND url = ? AND deleted = 0",
                 user.id,
-                sanitizedPodcast
+                sanitizedPodcast,
               );
 
               if (!subscription) {
@@ -199,12 +197,12 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
                   "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
                   user.id,
                   sanitizedPodcast,
-                  timestamp
+                  timestamp,
                 );
                 subscription = ctx.db.first<{ id: number }>(
                   "SELECT id FROM subscriptions WHERE user = ? AND url = ?",
                   user.id,
-                  sanitizedPodcast
+                  sanitizedPodcast,
                 );
               }
 
@@ -213,7 +211,7 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
                 const device = ctx.db.first<{ id: number }>(
                   "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
                   user.id,
-                  action.device
+                  action.device,
                 );
                 if (device) {
                   deviceId = device.id;
@@ -235,9 +233,7 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
 
               const dataJson = JSON.stringify({ guid, ...extra });
 
-              const changedTs = actionTimestamp
-                ? parseTimestamp(actionTimestamp)
-                : timestamp;
+              const changedTs = actionTimestamp ? parseTimestamp(actionTimestamp) : timestamp;
 
               ctx.db.run(
                 `INSERT INTO episodes_actions
@@ -253,7 +249,7 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
                 position ?? null,
                 started ?? null,
                 total ?? null,
-                dataJson
+                dataJson,
               );
             }
           });

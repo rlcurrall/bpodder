@@ -1,7 +1,4 @@
 {
-  "add": [
-    "https://feeds.example.com/podcast1.xml",
-    "https://feeds.example.com/podcast2.xml"
-  ],
+  "add": ["https://feeds.example.com/podcast1.xml", "https://feeds.example.com/podcast2.xml"],
   "remove": []
 }

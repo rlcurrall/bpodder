@@ -71,8 +71,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       return withLogging(handler);
     }
     // It's a method object like { GET: ..., PUT: ... }
-    const wrapped: { [method: string]: (req: Request) => Promise<Response> } =
-      {};
+    const wrapped: { [method: string]: (req: Request) => Promise<Response> } = {};
     for (const [method, fn] of Object.entries(handler)) {
       wrapped[method] = withLogging(fn);
     }
@@ -92,8 +91,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
 
     // Simple API — single handler, extension parsed from param
     "/subscriptions/:username": subscriptions.subscriptionsUserLevel,
-    "/subscriptions/:username/:deviceid":
-      subscriptions.subscriptionsDeviceLevel,
+    "/subscriptions/:username/:deviceid": subscriptions.subscriptionsDeviceLevel,
 
     // Health
     "/health": auth.health,
@@ -105,8 +103,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
     "/index.php/login/v2": nextcloud.ncLoginInit,
     "/index.php/login/v2/poll": nextcloud.ncLoginPoll,
     "/index.php/apps/gpoddersync/subscriptions": nextcloud.ncSubscriptions,
-    "/index.php/apps/gpoddersync/subscription_change/create":
-      nextcloud.ncSubscriptionChange,
+    "/index.php/apps/gpoddersync/subscription_change/create": nextcloud.ncSubscriptionChange,
     "/index.php/apps/gpoddersync/episode_action": nextcloud.ncEpisodes,
 
     // Unimplemented endpoints - return 501
@@ -123,10 +120,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
 
   // Wrap all routes with logging
   const routes: typeof rawRoutes = Object.fromEntries(
-    Object.entries(rawRoutes).map(([path, handler]) => [
-      path,
-      wrapRoute(handler as any),
-    ]),
+    Object.entries(rawRoutes).map(([path, handler]) => [path, wrapRoute(handler as any)]),
   ) as any as typeof rawRoutes;
 
   const server = serve({

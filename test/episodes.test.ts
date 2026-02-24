@@ -109,7 +109,9 @@ describe("episodes", () => {
 
       const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(getRes);
-      const playAction = body.actions.find((a: any) => a.episode === "http://example.com/ep-play.mp3");
+      const playAction = body.actions.find(
+        (a: any) => a.episode === "http://example.com/ep-play.mp3",
+      );
       expect(playAction).toMatchObject({
         position: 120,
         started: 15,
@@ -148,7 +150,9 @@ describe("episodes", () => {
 
       const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(getRes);
-      const action = body.actions.find((a: any) => a.episode === "http://example.com/ep-timestamp.mp3");
+      const action = body.actions.find(
+        (a: any) => a.episode === "http://example.com/ep-timestamp.mp3",
+      );
       expect(action.timestamp).toBe(explicitTimestamp);
     });
 
@@ -165,7 +169,9 @@ describe("episodes", () => {
 
       const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(getRes);
-      const action = body.actions.find((a: any) => a.episode === "http://example.com/ep-no-timestamp.mp3");
+      const action = body.actions.find(
+        (a: any) => a.episode === "http://example.com/ep-no-timestamp.mp3",
+      );
       expect(action.timestamp).toBeDefined();
       expect(action.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}/);
     });
@@ -203,7 +209,9 @@ describe("episodes", () => {
 
       const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(getRes);
-      const action = body.actions.find((a: any) => a.episode === "http://example.com/ep-device.mp3");
+      const action = body.actions.find(
+        (a: any) => a.episode === "http://example.com/ep-device.mp3",
+      );
       expect(action.device).toBe(deviceId);
     });
 
@@ -221,7 +229,9 @@ describe("episodes", () => {
 
       const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(getRes);
-      const action = body.actions.find((a: any) => a.episode === "http://example.com/ep-play-case.mp3");
+      const action = body.actions.find(
+        (a: any) => a.episode === "http://example.com/ep-play-case.mp3",
+      );
       expect(action.action).toBe("play"); // lowercased
     });
 
@@ -279,7 +289,9 @@ describe("episodes", () => {
 
       const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(getRes);
-      const action = body.actions.find((a: any) => a.episode === "http://example.com/ep-flattr.mp3");
+      const action = body.actions.find(
+        (a: any) => a.episode === "http://example.com/ep-flattr.mp3",
+      );
       expect(action).toBeDefined();
       expect(action.action).toBe("flattr");
     });
@@ -320,7 +332,7 @@ describe("episodes", () => {
       ]);
       expect(res.status).toBe(200);
       const body = await alice.client.json(res);
-      
+
       // update_urls should contain both podcast and episode URL rewrites as tuples
       expect(body.update_urls).toEqual([
         [podcastWithSpace, podcastTrimmed],
@@ -343,7 +355,9 @@ describe("episodes", () => {
 
       const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: String(T1) });
       const body = await alice.client.json(res);
-      expect(body.actions.some((a: any) => a.episode === "http://example.com/ep-since-test.mp3")).toBe(true);
+      expect(
+        body.actions.some((a: any) => a.episode === "http://example.com/ep-since-test.mp3"),
+      ).toBe(true);
     });
 
     test("19. POST action → T1, GET since=T1+1 (not included)", async () => {
@@ -357,9 +371,13 @@ describe("episodes", () => {
       const postBody = await alice.client.json(postRes);
       const T1 = postBody.timestamp;
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: String(T1 + 1) });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: String(T1 + 1),
+      });
       const body = await alice.client.json(res);
-      expect(body.actions.some((a: any) => a.episode === "http://example.com/ep-since-exclusive.mp3")).toBe(false);
+      expect(
+        body.actions.some((a: any) => a.episode === "http://example.com/ep-since-exclusive.mp3"),
+      ).toBe(false);
     });
 
     test("20. GET since=far future", async () => {
@@ -407,7 +425,9 @@ describe("episodes", () => {
       ]);
 
       // Check subscriptions
-      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.add).toContain(unknownPodcast);
     });
@@ -441,7 +461,7 @@ describe("episodes", () => {
       const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(res);
       const playsForEpisode = body.actions.filter(
-        (a: any) => a.episode === dedupTestEpisode && a.action === "play"
+        (a: any) => a.episode === dedupTestEpisode && a.action === "play",
       );
       // Should have both entries (no dedup)
       expect(playsForEpisode.length).toBe(2);
@@ -472,7 +492,7 @@ describe("episodes", () => {
       const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(res);
       const downloadsForEpisode = body.actions.filter(
-        (a: any) => a.episode === dedupTestEpisode && a.action === "download"
+        (a: any) => a.episode === dedupTestEpisode && a.action === "download",
       );
       expect(downloadsForEpisode.length).toBe(2);
     });
@@ -498,7 +518,7 @@ describe("episodes", () => {
       const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
       const body = await alice.client.json(res);
       const playsForPodcast = body.actions.filter(
-        (a: any) => a.podcast === testPodcast && a.action === "play"
+        (a: any) => a.podcast === testPodcast && a.action === "play",
       );
       expect(playsForPodcast.length).toBeGreaterThanOrEqual(2);
     });
@@ -531,7 +551,10 @@ describe("episodes", () => {
         },
       ]);
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { podcast: feedA, since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        podcast: feedA,
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.actions.every((a: any) => a.podcast === feedA)).toBe(true);
       expect(body.actions.some((a: any) => a.podcast === feedB)).toBe(false);
@@ -568,7 +591,10 @@ describe("episodes", () => {
         },
       ]);
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { device: deviceId, since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        device: deviceId,
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.actions.every((a: any) => a.device === deviceId)).toBe(true);
     });
@@ -600,7 +626,10 @@ describe("episodes", () => {
         },
       ]);
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { aggregated: "true", since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        aggregated: "true",
+        since: "0",
+      });
       const body = await alice.client.json(res);
       const episodeActions = body.actions.filter((a: any) => a.episode === aggTestEpisode);
       expect(episodeActions.length).toBe(1);

@@ -35,7 +35,9 @@ describe("nextcloud", () => {
   });
 
   test("3. POST /index.php/login/v2/poll with unknown token", async () => {
-    const res = await alice.client.postForm("/index.php/login/v2/poll", { token: "unknown_token_12345" });
+    const res = await alice.client.postForm("/index.php/login/v2/poll", {
+      token: "unknown_token_12345",
+    });
     expect(res.status).toBe(404);
   });
 
@@ -142,7 +144,9 @@ describe("nextcloud", () => {
   });
 
   test("9. GET /index.php/apps/gpoddersync/episode_action", async () => {
-    const res = await alice.client.get("/index.php/apps/gpoddersync/episode_action", { since: "0" });
+    const res = await alice.client.get("/index.php/apps/gpoddersync/episode_action", {
+      since: "0",
+    });
     expect(res.status).toBe(200);
     const body = await alice.client.json(res);
     expect(body.timestamp).toBeDefined();
@@ -181,7 +185,9 @@ describe("nextcloud", () => {
     expect(res.status).toBe(200);
 
     // Verify via GPodder API
-    const getRes = await alice.client.get("/api/2/subscriptions/alice_nc/default.json", { since: "0" });
+    const getRes = await alice.client.get("/api/2/subscriptions/alice_nc/default.json", {
+      since: "0",
+    });
     const body = await alice.client.json(getRes);
     expect(body.add).toContain("https://feeds.example.com/nextcloud-test.xml");
   });

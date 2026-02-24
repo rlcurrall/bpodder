@@ -200,7 +200,9 @@ describe("auth", () => {
 
   test("19. POST login with expired/invalid session cookie (401)", async () => {
     // Try login with invalid session cookie - no Basic auth
-    const clientWithInvalidCookie = new Client(serverUrl).withCookie("sessionid=invalid_token_12345");
+    const clientWithInvalidCookie = new Client(serverUrl).withCookie(
+      "sessionid=invalid_token_12345",
+    );
     const res = await clientWithInvalidCookie.post("/api/2/auth/alice/login.json");
 
     // Invalid session without Basic auth returns 401

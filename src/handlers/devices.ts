@@ -19,30 +19,25 @@ export function createDeviceHandlers(ctx: HandlerContext) {
       deviceid: string;
       caption: string | null;
       type: string | null;
-    }>(
-      "SELECT deviceid, caption, type FROM devices WHERE user = ?",
-      userId
-    );
+    }>("SELECT deviceid, caption, type FROM devices WHERE user = ?", userId);
 
     const subCount =
       ctx.db.first<{ count: number }>(
         "SELECT COUNT(*) as count FROM subscriptions WHERE user = ? AND deleted = 0",
-        userId
+        userId,
       )?.count ?? 0;
 
     return rows.map((row) => ({
       id: row.deviceid,
-      caption: row.caption ?? '',
-      type: row.type ?? '',
+      caption: row.caption ?? "",
+      type: row.type ?? "",
       subscriptions: subCount,
     }));
   };
 
   return {
     // /api/2/devices/:username → username = "alice.json"
-    listDevices: async (
-      req: Request & { params: { username: string } }
-    ): Promise<Response> => {
+    listDevices: async (req: Request & { params: { username: string } }): Promise<Response> => {
       if (req.method !== "GET") {
         return error("Method not allowed", 405);
       }
@@ -69,7 +64,7 @@ export function createDeviceHandlers(ctx: HandlerContext) {
 
     // /api/2/devices/:username/:deviceid → deviceid = "phone.json"
     upsertDevice: async (
-      req: Request & { params: { username: string; deviceid: string } }
+      req: Request & { params: { username: string; deviceid: string } },
     ): Promise<Response> => {
       if (req.method !== "POST") {
         return error("Method not allowed", 405);
@@ -95,29 +90,26 @@ export function createDeviceHandlers(ctx: HandlerContext) {
         const existing = ctx.db.first<{ id: number; caption: string | null; type: string | null }>(
           "SELECT id, caption, type FROM devices WHERE user = ? AND deviceid = ?",
           user.id,
-          deviceid
+          deviceid,
         );
 
         if (existing) {
           // Existing device - only update supplied keys
           const updates: string[] = [];
           const params: (string | number)[] = [];
-          
-          if (Object.prototype.hasOwnProperty.call(rawBody, 'caption')) {
+
+          if (Object.prototype.hasOwnProperty.call(rawBody, "caption")) {
             updates.push("caption = ?");
-            params.push(body.caption ?? '');
+            params.push(body.caption ?? "");
           }
-          if (Object.prototype.hasOwnProperty.call(rawBody, 'type')) {
+          if (Object.prototype.hasOwnProperty.call(rawBody, "type")) {
             updates.push("type = ?");
-            params.push(body.type ?? '');
+            params.push(body.type ?? "");
           }
-          
+
           if (updates.length > 0) {
             params.push(existing.id);
-            ctx.db.run(
-              `UPDATE devices SET ${updates.join(", ")} WHERE id = ?`,
-              ...params
-            );
+            ctx.db.run(`UPDATE devices SET ${updates.join(", ")} WHERE id = ?`, ...params);
           }
         } else {
           // New device - insert with provided values (default to empty string)
@@ -125,8 +117,8 @@ export function createDeviceHandlers(ctx: HandlerContext) {
             "INSERT INTO devices (user, deviceid, caption, type, data) VALUES (?, ?, ?, ?, NULL)",
             user.id,
             deviceid,
-            body.caption ?? '',
-            body.type ?? ''
+            body.caption ?? "",
+            body.type ?? "",
           );
         }
 

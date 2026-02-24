@@ -2,12 +2,7 @@ import type { DB } from "../db";
 import { requireAuth, type SessionStore } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { json, empty, text, opml, error } from "../lib/response";
-import {
-  SubscriptionChangeBody,
-  SubscriptionPutBody,
-  isHttpUrl,
-  zodError,
-} from "../lib/schemas";
+import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
 import type { HandlerContext } from "./auth";
 
@@ -18,18 +13,14 @@ function sanitizeUrl(url: string): { url: string; modified: boolean } {
 
 export function createSubscriptionHandlers(ctx: HandlerContext) {
   // Shared logic for adding subscriptions
-  function addSubscriptions(
-    userId: number,
-    urls: string[],
-    timestamp: number
-  ): void {
+  function addSubscriptions(userId: number, urls: string[], timestamp: number): void {
     for (const url of urls) {
       if (!isHttpUrl(url)) continue;
 
       const existing = ctx.db.first<{ id: number; deleted: number }>(
         "SELECT id, deleted FROM subscriptions WHERE user = ? AND url = ?",
         userId,
-        url
+        url,
       );
 
       if (existing) {
@@ -37,22 +28,18 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           ctx.db.run(
             "UPDATE subscriptions SET deleted = 0, changed = ? WHERE id = ?",
             timestamp,
-            existing.id
+            existing.id,
           );
         } else {
           // Update timestamp so since=T returns it
-          ctx.db.run(
-            "UPDATE subscriptions SET changed = ? WHERE id = ?",
-            timestamp,
-            existing.id
-          );
+          ctx.db.run("UPDATE subscriptions SET changed = ? WHERE id = ?", timestamp, existing.id);
         }
       } else {
         ctx.db.run(
           "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
           userId,
           url,
-          timestamp
+          timestamp,
         );
       }
     }
@@ -68,7 +55,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
         type: null,
         data: null,
       },
-      ["user", "deviceid"]
+      ["user", "deviceid"],
     );
   }
 
@@ -76,7 +63,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
   function buildOPML(userId: number): string {
     const subs = ctx.db.all<{ url: string; data: string | null }>(
       "SELECT url, data FROM subscriptions WHERE user = ? AND deleted = 0",
-      userId
+      userId,
     );
 
     let opmlContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -113,7 +100,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
   return {
     // V2 delta sync: GET|POST /api/2/subscriptions/:username/:deviceid
     subscriptionsV2: async (
-      req: Request & { params: { username: string; deviceid: string } }
+      req: Request & { params: { username: string; deviceid: string } },
     ): Promise<Response> => {
       const username = req.params.username;
       const { value: deviceid } = parseParam(req.params.deviceid);
@@ -135,7 +122,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           }>(
             "SELECT url, deleted, changed FROM subscriptions WHERE user = ? AND changed >= ?",
             user.id,
-            since
+            since,
           );
 
           const add: string[] = [];
@@ -182,14 +169,14 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
               if (!isHttpUrl(sanitized.url)) {
                 // Per GPodder spec: rewrite non-HTTP URLs to empty string and skip
-                updateUrls.push([sanitized.url, '']);
+                updateUrls.push([sanitized.url, ""]);
                 continue;
               }
 
               const existing = ctx.db.first<{ id: number; deleted: number }>(
                 "SELECT id, deleted FROM subscriptions WHERE user = ? AND url = ?",
                 user.id,
-                sanitized.url
+                sanitized.url,
               );
 
               if (existing) {
@@ -197,13 +184,13 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
                   ctx.db.run(
                     "UPDATE subscriptions SET deleted = 0, changed = ? WHERE id = ?",
                     timestamp,
-                    existing.id
+                    existing.id,
                   );
                 } else {
                   ctx.db.run(
                     "UPDATE subscriptions SET changed = ? WHERE id = ?",
                     timestamp,
-                    existing.id
+                    existing.id,
                   );
                 }
               } else {
@@ -211,7 +198,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
                   "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
                   user.id,
                   sanitized.url,
-                  timestamp
+                  timestamp,
                 );
               }
             }
@@ -224,7 +211,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
               if (!isHttpUrl(sanitized.url)) {
                 // Per GPodder spec: rewrite non-HTTP URLs to empty string and skip
-                updateUrls.push([sanitized.url, '']);
+                updateUrls.push([sanitized.url, ""]);
                 continue;
               }
 
@@ -232,7 +219,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
                 "UPDATE subscriptions SET deleted = 1, changed = ? WHERE user = ? AND url = ?",
                 timestamp,
                 user.id,
-                sanitized.url
+                sanitized.url,
               );
             }
           });
@@ -253,7 +240,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
     // V2.11 all subscriptions: GET /api/2/subscriptions/:username
     subscriptionsAll: async (
-      req: Request & { params: { username: string } }
+      req: Request & { params: { username: string } },
     ): Promise<Response> => {
       if (req.method !== "GET") {
         return error("Method not allowed", 405);
@@ -265,7 +252,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
         const subs = ctx.db.all<{ url: string }>(
           "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
-          user.id
+          user.id,
         );
 
         return json(subs.map((s) => s.url));
@@ -278,7 +265,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
     // Simple API user-level: GET /subscriptions/:username (returns .json or .opml)
     subscriptionsUserLevel: async (
-      req: Request & { params: { username: string } }
+      req: Request & { params: { username: string } },
     ): Promise<Response> => {
       if (req.method !== "GET") {
         return error("Method not allowed", 405);
@@ -295,7 +282,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
         // Default to JSON array
         const subs = ctx.db.all<{ url: string }>(
           "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
-          user.id
+          user.id,
         );
 
         return json(subs.map((s) => s.url));
@@ -309,7 +296,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
     // Simple API device-level: GET|PUT /subscriptions/:username/:deviceid
     subscriptionsDeviceLevel: {
       GET: async (
-        req: Request & { params: { username: string; deviceid: string } }
+        req: Request & { params: { username: string; deviceid: string } },
       ): Promise<Response> => {
         const rawUsername = req.params.username;
         const rawDeviceid = req.params.deviceid;
@@ -323,7 +310,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           const device = ctx.db.first<{ id: number }>(
             "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
             user.id,
-            deviceid
+            deviceid,
           );
           if (!device) {
             return error("Device not found", 404);
@@ -332,7 +319,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           if (ext === "txt") {
             const subs = ctx.db.all<{ url: string }>(
               "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
-              user.id
+              user.id,
             );
             return text(subs.map((s) => s.url).join("\n"));
           }
@@ -344,7 +331,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           // Default JSON
           const subs = ctx.db.all<{ url: string }>(
             "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
-            user.id
+            user.id,
           );
           return json(subs.map((s) => s.url));
         } catch (e) {
@@ -355,7 +342,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
       },
 
       PUT: async (
-        req: Request & { params: { username: string; deviceid: string } }
+        req: Request & { params: { username: string; deviceid: string } },
       ): Promise<Response> => {
         const rawUsername = req.params.username;
         const rawDeviceid = req.params.deviceid;
@@ -410,7 +397,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
     // Legacy OPML export handler (routes still point here)
     opml: async (
-      req: Request & { params: { username: string; deviceid?: string } }
+      req: Request & { params: { username: string; deviceid?: string } },
     ): Promise<Response> => {
       if (req.method !== "GET") {
         return error("Method not allowed", 405);
@@ -420,9 +407,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
         const rawUsername = req.params.username;
         const rawDeviceid = req.params.deviceid;
         const { value: username } = parseParam(rawUsername);
-        const { value: deviceid } = rawDeviceid
-          ? parseParam(rawDeviceid)
-          : { value: "" };
+        const { value: deviceid } = rawDeviceid ? parseParam(rawDeviceid) : { value: "" };
 
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
@@ -430,7 +415,7 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
           const device = ctx.db.first<{ id: number }>(
             "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
             user.id,
-            deviceid
+            deviceid,
           );
           if (!device) {
             return error("Device not found", 404);

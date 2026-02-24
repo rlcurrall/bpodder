@@ -4,12 +4,7 @@ import { parseParam } from "../lib/params";
 import type { DB } from "../db";
 import type { Config } from "../config";
 import type { Logger } from "../lib/logger";
-import {
-  SubscriptionChangeBody,
-  EpisodePostBody,
-  EpisodeAction,
-  zodError,
-} from "../lib/schemas";
+import { SubscriptionChangeBody, EpisodePostBody, EpisodeAction, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
 
 interface HandlerContext {
@@ -40,7 +35,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
         });
       } catch (e) {
         ctx.logger.error({ err: e }, "NextCloud login init handler error");
-          return error("Server error", 500);
+        return error("Server error", 500);
       }
     },
 
@@ -94,7 +89,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
           `SELECT url, deleted, changed FROM subscriptions 
            WHERE user = ? AND changed >= ?`,
           user.id,
-          since
+          since,
         );
 
         const add: string[] = [];
@@ -140,7 +135,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
             const existing = ctx.db.first<{ id: number; deleted: number }>(
               "SELECT id, deleted FROM subscriptions WHERE user = ? AND url = ?",
               user.id,
-              url
+              url,
             );
 
             if (existing) {
@@ -148,7 +143,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
                 ctx.db.run(
                   "UPDATE subscriptions SET deleted = 0, changed = ? WHERE id = ?",
                   timestamp,
-                  existing.id
+                  existing.id,
                 );
               }
             } else {
@@ -156,7 +151,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
                 "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
                 user.id,
                 url,
-                timestamp
+                timestamp,
               );
             }
           }
@@ -166,7 +161,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
               "UPDATE subscriptions SET deleted = 1, changed = ? WHERE user = ? AND url = ?",
               timestamp,
               user.id,
-              url
+              url,
             );
           }
         });
@@ -215,7 +210,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
             WHERE ea.user = ? AND ea.uploaded_at >= ?
             ORDER BY ea.changed`,
             user.id,
-            since
+            since,
           );
 
           const actions = rows.map((row) => {
@@ -223,9 +218,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
               podcast: row.podcast || "",
               episode: row.url,
               action: row.action,
-              timestamp: new Date(row.changed * 1000)
-                .toISOString()
-                .replace(/\.\d{3}Z$/, "Z"),
+              timestamp: new Date(row.changed * 1000).toISOString().replace(/\.\d{3}Z$/, "Z"),
             };
 
             if (row.position !== null) action.position = row.position;
@@ -283,7 +276,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
               let subscription = ctx.db.first<{ id: number }>(
                 "SELECT id FROM subscriptions WHERE user = ? AND url = ? AND deleted = 0",
                 user.id,
-                podcastUrl
+                podcastUrl,
               );
 
               if (!subscription && podcastUrl) {
@@ -291,12 +284,12 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
                   "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
                   user.id,
                   podcastUrl,
-                  timestamp
+                  timestamp,
                 );
                 subscription = ctx.db.first<{ id: number }>(
                   "SELECT id FROM subscriptions WHERE user = ? AND url = ?",
                   user.id,
-                  podcastUrl
+                  podcastUrl,
                 );
               }
 
@@ -305,7 +298,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
                 const device = ctx.db.first<{ id: number }>(
                   "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
                   user.id,
-                  action.device as string
+                  action.device as string,
                 );
                 if (device) {
                   deviceId = device.id;
@@ -351,7 +344,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
                 position ?? null,
                 started ?? null,
                 total ?? null,
-                dataJson
+                dataJson,
               );
             }
           });

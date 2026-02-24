@@ -21,14 +21,11 @@ export const RegisterBody = z
       .string()
       .min(1, "Username is required")
       .refine((val) => val !== "current", "Username 'current' is reserved")
-      .refine(
-        (val) => !val.startsWith("!"),
-        "Username cannot start with !"
-      )
+      .refine((val) => !val.startsWith("!"), "Username cannot start with !")
       .refine((val) => !val.includes("/"), "Username cannot contain /")
       .refine(
         (val) => /^[\w][\w_-]+$/.test(val),
-        "Username contains invalid characters"
+        "Username contains invalid characters",
       ),
     password: z.string().min(8, "Password must be at least 8 characters"),
     passwordConfirm: z.string().optional(),
@@ -82,19 +79,21 @@ export const EpisodeAction = z
     action: data.action.toLowerCase(),
   }))
   .pipe(
-    z.object({
-      podcast: z.string(),
-      episode: z.string(),
-      action: z.enum(validActions, {
-        message: `Invalid action: must be one of ${validActions.join(", ")}`,
-      }),
-      timestamp: z.string().optional(),
-      position: z.number().optional(),
-      started: z.number().optional(),
-      total: z.number().optional(),
-      device: z.string().optional(),
-      guid: z.string().optional(),
-    }).passthrough()
+    z
+      .object({
+        podcast: z.string(),
+        episode: z.string(),
+        action: z.enum(validActions, {
+          message: `Invalid action: must be one of ${validActions.join(", ")}`,
+        }),
+        timestamp: z.string().optional(),
+        position: z.number().optional(),
+        started: z.number().optional(),
+        total: z.number().optional(),
+        device: z.string().optional(),
+        guid: z.string().optional(),
+      })
+      .loose(),
   );
 
 export const EpisodePostBody = z.union([

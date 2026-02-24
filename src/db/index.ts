@@ -29,10 +29,7 @@ export class DB {
     return stmt.all(...params) as T[];
   }
 
-  run(
-    sql: string,
-    ...params: unknown[]
-  ): { changes: number; lastInsertRowid: number | bigint } {
+  run(sql: string, ...params: unknown[]): { changes: number; lastInsertRowid: number | bigint } {
     const stmt = this.getStatement(sql);
     return stmt.run(...params);
   }
@@ -49,11 +46,7 @@ export class DB {
     }
   }
 
-  upsert(
-    table: string,
-    row: Record<string, unknown>,
-    conflictCols: string[],
-  ): void {
+  upsert(table: string, row: Record<string, unknown>, conflictCols: string[]): void {
     const columns = Object.keys(row);
     const placeholders = columns.map(() => "?").join(", ");
     const updateCols = columns.filter((c) => !conflictCols.includes(c));

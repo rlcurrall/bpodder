@@ -24,7 +24,9 @@ export interface HandlerContext {
 export function createAuthHandlers(ctx: HandlerContext) {
   return {
     // /api/2/auth/:username/:action → action = "login.json" | "logout.json"
-    auth: async (req: Request & { params: { username: string; action: string } }): Promise<Response> => {
+    auth: async (
+      req: Request & { params: { username: string; action: string } },
+    ): Promise<Response> => {
       const username = req.params.username;
       const { value: action } = parseParam(req.params.action);
 
@@ -54,7 +56,7 @@ export function createAuthHandlers(ctx: HandlerContext) {
             if (session) {
               const sessionUser = ctx.db.first<{ name: string }>(
                 "SELECT name FROM users WHERE id = ?",
-                session.userId
+                session.userId,
               );
               if (sessionUser && sessionUser.name === username) {
                 // Valid session cookie for this user - refresh and return success
@@ -103,7 +105,7 @@ export function createAuthHandlers(ctx: HandlerContext) {
             if (session) {
               const sessionUser = ctx.db.first<{ name: string }>(
                 "SELECT name FROM users WHERE id = ?",
-                session.userId
+                session.userId,
               );
               if (sessionUser && sessionUser.name !== username) {
                 return error("Cookie username mismatch", 400);
@@ -145,7 +147,7 @@ export function createAuthHandlers(ctx: HandlerContext) {
 
         const existing = ctx.db.first<{ id: number }>(
           "SELECT id FROM users WHERE name = ?",
-          username
+          username,
         );
         if (existing) {
           return error("Username already exists", 400);
@@ -155,7 +157,7 @@ export function createAuthHandlers(ctx: HandlerContext) {
         ctx.db.run(
           "INSERT INTO users (name, password, token) VALUES (?, ?, NULL)",
           username,
-          passwordHash
+          passwordHash,
         );
 
         return json({});

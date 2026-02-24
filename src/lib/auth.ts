@@ -73,7 +73,7 @@ export class SessionStore {
       sessionId,
       userId,
       now,
-      expiresAt
+      expiresAt,
     );
 
     // Write to cache
@@ -97,7 +97,7 @@ export class SessionStore {
     // Load from SQLite
     const row = this.db.first<{ user_id: number; expires_at: number }>(
       "SELECT user_id, expires_at FROM sessions WHERE id = ?",
-      sessionId
+      sessionId,
     );
 
     if (!row || row.expires_at < Math.floor(Date.now() / 1000)) {
@@ -154,13 +154,15 @@ export class PollTokenStore {
       "INSERT INTO poll_tokens (token_hash, user_id, created_at, expires_at, attempts) VALUES (?, NULL, ?, ?, 0)",
       tokenHash,
       now,
-      expiresAt
+      expiresAt,
     );
 
     return { token, loginUrl: `${baseUrl}/login?token=${encodeURIComponent(token)}` };
   }
 
-  async poll(token: string): Promise<{ userId: number; loginName: string; appPassword: string } | null> {
+  async poll(
+    token: string,
+  ): Promise<{ userId: number; loginName: string; appPassword: string } | null> {
     const tokenHash = await hashToken(token);
     const now = Math.floor(Date.now() / 1000);
 
@@ -168,10 +170,7 @@ export class PollTokenStore {
       user_id: number | null;
       expires_at: number;
       attempts: number;
-    }>(
-      "SELECT user_id, expires_at, attempts FROM poll_tokens WHERE token_hash = ?",
-      tokenHash
-    );
+    }>("SELECT user_id, expires_at, attempts FROM poll_tokens WHERE token_hash = ?", tokenHash);
 
     if (!row) {
       return null;
@@ -191,7 +190,7 @@ export class PollTokenStore {
         this.db.run(
           "UPDATE poll_tokens SET attempts = ? WHERE token_hash = ?",
           newAttempts,
-          tokenHash
+          tokenHash,
         );
       }
       return null;
@@ -200,7 +199,7 @@ export class PollTokenStore {
     // User authenticated, generate app password
     const user = this.db.first<{ name: string; password: string }>(
       "SELECT name, password FROM users WHERE id = ?",
-      row.user_id
+      row.user_id,
     );
 
     if (!user) {
@@ -226,7 +225,7 @@ export class PollTokenStore {
     const tokenHash = await hashToken(token);
     const row = this.db.first<{ expires_at: number }>(
       "SELECT expires_at FROM poll_tokens WHERE token_hash = ?",
-      tokenHash
+      tokenHash,
     );
 
     if (!row || row.expires_at < Math.floor(Date.now() / 1000)) {
@@ -235,11 +234,7 @@ export class PollTokenStore {
 
     // Only update user_id if it's a valid user (userId > 0)
     if (userId > 0) {
-      this.db.run(
-        "UPDATE poll_tokens SET user_id = ? WHERE token_hash = ?",
-        userId,
-        tokenHash
-      );
+      this.db.run("UPDATE poll_tokens SET user_id = ? WHERE token_hash = ?", userId, tokenHash);
     }
     return true;
   }
@@ -281,10 +276,7 @@ function parseBasicAuth(header: string): AuthCredentials | null {
 }
 
 // Verify NextCloud app password
-async function verifyAppPassword(
-  user: User,
-  providedPassword: string
-): Promise<boolean> {
+async function verifyAppPassword(user: User, providedPassword: string): Promise<boolean> {
   // Format: token:sha1(user_password_hash + token)
   const parts = providedPassword.split(":");
   if (parts.length !== 2) return false;
@@ -305,7 +297,7 @@ export async function requireAuth(
   req: Request,
   db: DB,
   sessions: SessionStore,
-  requestedUsername?: string
+  requestedUsername?: string,
 ): Promise<User> {
   const url = new URL(req.url);
   const authHeader = req.headers.get("Authorization");
@@ -338,7 +330,7 @@ export async function requireAuth(
         const [, username, token] = tokenMatch;
         const user = db.first<User>(
           "SELECT id, name, password, token FROM users WHERE name = ?",
-          username
+          username,
         );
 
         if (user && user.token === token) {
@@ -348,7 +340,7 @@ export async function requireAuth(
         // Standard Basic auth
         const user = db.first<User>(
           "SELECT id, name, password, token FROM users WHERE name = ?",
-          creds.username
+          creds.username,
         );
 
         if (user) {
@@ -379,7 +371,7 @@ export async function requireAuth(
     // Load user from session
     const user = db.first<User>(
       "SELECT id, name, password, token FROM users WHERE id = ?",
-      sessionUserId
+      sessionUserId,
     );
     if (user) {
       authenticatedUser = user;
