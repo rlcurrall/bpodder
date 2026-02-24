@@ -1,5 +1,4 @@
-import type { DB } from "../db";
-import { requireAuth, type SessionStore } from "../lib/auth";
+import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { json, empty, text, opml, error } from "../lib/response";
 import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl, zodError } from "../lib/schemas";

@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
-import { Client } from "./helpers/client";
 
 // Test-only utility for parsing OPML responses (NOT imported from src/)
 function extractFeedUrls(opmlXml: string): string[] {
@@ -22,7 +21,10 @@ describe("opml", () => {
   beforeAll(async () => {
     serverUrl = getServerUrl();
     username = `alice_opml_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    alice = await createTestUser(serverUrl, { username, password: "password123" });
+    alice = await createTestUser(serverUrl, {
+      username,
+      password: "password123",
+    });
   });
 
   test("1. OPML export with no subscriptions", async () => {

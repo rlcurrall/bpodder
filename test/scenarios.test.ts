@@ -88,8 +88,7 @@ describe("scenarios", () => {
         },
       ]);
       expect(episodeRes.status).toBe(200);
-      const epBody = await alice.client.json(episodeRes);
-      const T2 = epBody.timestamp;
+      await alice.client.json(episodeRes);
 
       // 6. GET episodes since=0 → both actions present
       const verifyEpisodes = await alice.client.get(`/api/2/episodes/${username}.json`, {
@@ -224,8 +223,7 @@ describe("scenarios", () => {
         add: [feedZ],
         remove: [],
       });
-      const subBody = await alice.client.json(subRes);
-      const T1 = subBody.timestamp;
+      await alice.client.json(subRes);
 
       // 2. Remove feedZ → T2
       const removeRes = await alice.client.post(`/api/2/subscriptions/${username}/device.json`, {
@@ -268,13 +266,12 @@ describe("scenarios", () => {
 
   describe("Scenario 4: gPodder desktop token auth", () => {
     let serverUrl: string;
-    let alice: TestUser;
     let username: string;
 
     beforeAll(async () => {
       serverUrl = getServerUrl();
       username = `scenario4_alice_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      alice = await createTestUser(serverUrl, {
+      await createTestUser(serverUrl, {
         username,
         password: "password123",
       });
@@ -321,7 +318,9 @@ describe("scenarios", () => {
       expect(authRes.status).toBe(200);
 
       // 3. Poll for credentials (form-encoded per NextCloud spec)
-      const pollRes = await alice.client.postForm("/index.php/login/v2/poll", { token: pollToken });
+      const pollRes = await alice.client.postForm("/index.php/login/v2/poll", {
+        token: pollToken,
+      });
       expect(pollRes.status).toBe(200);
       const pollBody = await alice.client.json(pollRes);
       const appPassword = pollBody.appPassword;

@@ -9,7 +9,7 @@ import {
   clearSessionCookie,
 } from "../lib/auth";
 import { parseParam } from "../lib/params";
-import { json, empty, error } from "../lib/response";
+import { json, error } from "../lib/response";
 import { RegisterBody, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
 
@@ -65,7 +65,10 @@ export function createAuthHandlers(ctx: HandlerContext) {
                 headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
                 headers.set("Content-Type", "application/json");
                 headers.set("Access-Control-Allow-Origin", "*");
-                return new Response(JSON.stringify({}), { status: 200, headers });
+                return new Response(JSON.stringify({}), {
+                  status: 200,
+                  headers,
+                });
               } else if (sessionUser && sessionUser.name !== username) {
                 // Cookie username mismatch per GPodder spec
                 return error("Cookie username mismatch", 400);

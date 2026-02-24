@@ -23,10 +23,7 @@ export const RegisterBody = z
       .refine((val) => val !== "current", "Username 'current' is reserved")
       .refine((val) => !val.startsWith("!"), "Username cannot start with !")
       .refine((val) => !val.includes("/"), "Username cannot contain /")
-      .refine(
-        (val) => /^[\w][\w_-]+$/.test(val),
-        "Username contains invalid characters",
-      ),
+      .refine((val) => /^[\w][\w_-]+$/.test(val), "Username contains invalid characters"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     passwordConfirm: z.string().optional(),
     captcha: z.string().optional(),

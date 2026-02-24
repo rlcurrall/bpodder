@@ -3,7 +3,6 @@ import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
 import { Client } from "./helpers/client";
 
-const feedUrl = "https://feeds.example.com/testfeed.xml";
 const episodeUrl = "http://example.com/files/s01e20.mp3";
 const podcastUrl = "http://example.com/feed.rss";
 
@@ -16,7 +15,10 @@ describe("episodes", () => {
   beforeAll(async () => {
     serverUrl = getServerUrl();
     username = `alice_ep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    alice = await createTestUser(serverUrl, { username, password: "password123" });
+    alice = await createTestUser(serverUrl, {
+      username,
+      password: "password123",
+    });
     // Create device
     await alice.client.post(`/api/2/devices/${username}/${deviceId}.json`, {
       caption: "Phone",
@@ -31,7 +33,9 @@ describe("episodes", () => {
 
   describe("Basic recording", () => {
     test("1. GET since=0, no actions", async () => {
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+      });
       expect(res.status).toBe(200);
       const body = await alice.client.json(res);
       expect(body.actions).toEqual([]);
@@ -54,7 +58,9 @@ describe("episodes", () => {
     });
 
     test("3. GET since=0 — all fields present", async () => {
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       expect(body.actions).toHaveLength(1);
       expect(body.actions[0]).toMatchObject({
@@ -72,7 +78,9 @@ describe("episodes", () => {
       const T1 = getBody.timestamp;
 
       // Query since T1
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: String(T1) });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: String(T1),
+      });
       const body = await alice.client.json(res);
       expect(body.actions).toHaveLength(1);
     });
@@ -241,7 +249,9 @@ describe("episodes", () => {
     });
 
     test("14. POST non-array body", async () => {
-      const res = await alice.client.post(`/api/2/episodes/${username}.json`, { not: "array" });
+      const res = await alice.client.post(`/api/2/episodes/${username}.json`, {
+        not: "array",
+      });
       expect(res.status).toBe(400);
     });
 
@@ -353,7 +363,9 @@ describe("episodes", () => {
       const postBody = await alice.client.json(postRes);
       const T1 = postBody.timestamp;
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: String(T1) });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: String(T1),
+      });
       const body = await alice.client.json(res);
       expect(
         body.actions.some((a: any) => a.episode === "http://example.com/ep-since-test.mp3"),
@@ -389,7 +401,9 @@ describe("episodes", () => {
     });
 
     test("21. GET since=abc (coerced to 0)", async () => {
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "abc" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "abc",
+      });
       expect(res.status).toBe(200);
       // Should return all results
       const body = await alice.client.json(res);
@@ -458,7 +472,9 @@ describe("episodes", () => {
         },
       ]);
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       const playsForEpisode = body.actions.filter(
         (a: any) => a.episode === dedupTestEpisode && a.action === "play",
@@ -489,7 +505,9 @@ describe("episodes", () => {
         },
       ]);
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       const downloadsForEpisode = body.actions.filter(
         (a: any) => a.episode === dedupTestEpisode && a.action === "download",
@@ -515,7 +533,9 @@ describe("episodes", () => {
         },
       ]);
 
-      const res = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const res = await alice.client.get(`/api/2/episodes/${username}.json`, {
+        since: "0",
+      });
       const body = await alice.client.json(res);
       const playsForPodcast = body.actions.filter(
         (a: any) => a.podcast === testPodcast && a.action === "play",

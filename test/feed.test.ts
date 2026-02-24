@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
-import { Client } from "./helpers/client";
 import { startMockRssServer, type MockRssServer } from "./helpers/mock-rss";
 
 describe("feed", () => {
@@ -11,7 +10,10 @@ describe("feed", () => {
 
   beforeAll(async () => {
     serverUrl = getServerUrl();
-    alice = await createTestUser(serverUrl, { username: "alice_feed", password: "password123" });
+    alice = await createTestUser(serverUrl, {
+      username: "alice_feed",
+      password: "password123",
+    });
 
     // Start mock RSS server with test fixtures
     rss = startMockRssServer({
@@ -28,7 +30,10 @@ describe("feed", () => {
   </channel>
 </rss>`,
       "/404-feed.xml": { body: "Not Found", status: 404 },
-      "/html-page.xml": { body: "<html>Not RSS</html>", contentType: "text/html" },
+      "/html-page.xml": {
+        body: "<html>Not RSS</html>",
+        contentType: "text/html",
+      },
       "/slow-feed.xml": { body: "<rss></rss>", delay: 15000 },
       "/media-content.xml": `<?xml version="1.0"?>
 <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">

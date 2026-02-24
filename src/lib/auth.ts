@@ -108,7 +108,10 @@ export class SessionStore {
     }
 
     // Add to cache
-    this.cache.set(sessionId, { userId: row.user_id, expiresAt: row.expires_at });
+    this.cache.set(sessionId, {
+      userId: row.user_id,
+      expiresAt: row.expires_at,
+    });
 
     // Periodic cleanup
     this.requestCount++;
@@ -157,12 +160,17 @@ export class PollTokenStore {
       expiresAt,
     );
 
-    return { token, loginUrl: `${baseUrl}/login?token=${encodeURIComponent(token)}` };
+    return {
+      token,
+      loginUrl: `${baseUrl}/login?token=${encodeURIComponent(token)}`,
+    };
   }
 
-  async poll(
-    token: string,
-  ): Promise<{ userId: number; loginName: string; appPassword: string } | null> {
+  async poll(token: string): Promise<{
+    userId: number;
+    loginName: string;
+    appPassword: string;
+  } | null> {
     const tokenHash = await hashToken(token);
     const now = Math.floor(Date.now() / 1000);
 
@@ -299,7 +307,6 @@ export async function requireAuth(
   sessions: SessionStore,
   requestedUsername?: string,
 ): Promise<User> {
-  const url = new URL(req.url);
   const authHeader = req.headers.get("Authorization");
   const cookieHeader = req.headers.get("Cookie");
 

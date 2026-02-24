@@ -9,7 +9,10 @@ describe("auth", () => {
 
   beforeAll(async () => {
     serverUrl = getServerUrl();
-    alice = await createTestUser(serverUrl, { username: "alice", password: "password123" });
+    alice = await createTestUser(serverUrl, {
+      username: "alice",
+      password: "password123",
+    });
   });
 
   test("1. POST login with correct Basic auth", async () => {
@@ -126,7 +129,6 @@ describe("auth", () => {
 
   test("13. Access bob's devices as alice (403 extension)", async () => {
     // Create bob
-    const bobClient = new Client(serverUrl).withBasicAuth("bob", "bobpassword");
     await new Client(serverUrl).post("/register", {
       username: "bob",
       password: "bobpassword",

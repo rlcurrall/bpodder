@@ -1,10 +1,9 @@
 import { json, error } from "../lib/response";
 import { type PollTokenStore, type SessionStore, requireAuth } from "../lib/auth";
-import { parseParam } from "../lib/params";
 import type { DB } from "../db";
 import type { Config } from "../config";
 import type { Logger } from "../lib/logger";
-import { SubscriptionChangeBody, EpisodePostBody, EpisodeAction, zodError } from "../lib/schemas";
+import { SubscriptionChangeBody, EpisodeAction, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
 
 interface HandlerContext {
@@ -86,7 +85,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
           deleted: number;
           changed: number;
         }>(
-          `SELECT url, deleted, changed FROM subscriptions 
+          `SELECT url, deleted, changed FROM subscriptions
            WHERE user = ? AND changed >= ?`,
           user.id,
           since,
@@ -195,7 +194,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
             total: number | null;
             data: string | null;
           }>(
-            `SELECT 
+            `SELECT
               ea.url,
               s.url as podcast,
               ea.action,
@@ -306,14 +305,10 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
               }
 
               const {
-                podcast,
-                episode,
-                action: actionName,
                 timestamp: actionTimestamp,
                 position,
                 started,
                 total,
-                device,
                 guid,
                 ...extra
               } = action;

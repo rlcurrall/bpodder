@@ -10,7 +10,16 @@
     "test": "bun test",
     "update-feeds": "bun run src/index.ts --update-feeds",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "oxfmt",
+      "oxlint --fix"
+    ]
   },
   "dependencies": {
     "pino": "^10.3.1",
@@ -19,6 +28,9 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "oxfmt": "^0.35.0"
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0"
   }
 }

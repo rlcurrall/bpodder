@@ -1,8 +1,7 @@
-import type { DB } from "../db";
-import { requireAuth, type SessionStore } from "../lib/auth";
+import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { json, error } from "../lib/response";
-import { EpisodePostBody, type EpisodeActionType, zodError } from "../lib/schemas";
+import { EpisodePostBody, zodError } from "../lib/schemas";
 import { ZodError } from "zod";
 import type { HandlerContext } from "./auth";
 
@@ -219,14 +218,11 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
               }
 
               const {
-                podcast,
-                episode,
                 action: actionType,
                 timestamp: actionTimestamp,
                 position,
                 started,
                 total,
-                device,
                 guid,
                 ...extra
               } = action;
