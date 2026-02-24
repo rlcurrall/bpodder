@@ -8,10 +8,13 @@
     "start": "bun run src/index.ts",
     "dev": "LOG_LEVEL=debug bun run --watch src/index.ts",
     "test": "bun test",
-    "update-feeds": "bun run src/index.ts --update-feeds"
+    "update-feeds": "bun run src/index.ts --update-feeds",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "oxfmt": "^0.35.0"
   },
   "dependencies": {
     "pino": "^10.3.1",
