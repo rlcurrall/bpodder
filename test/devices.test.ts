@@ -135,4 +135,41 @@ describe("devices", () => {
     const body = await alice.client.json(res);
     expect(body.length).toBeGreaterThan(0);
   });
+
+  test("14. POST partial update - only caption, type unchanged", async () => {
+    // First ensure device exists with both fields
+    await alice.client.post(`/api/2/devices/${alice.username}/partial.json`, {
+      caption: "Original Caption",
+      type: "mobile",
+    });
+
+    // Now update only caption
+    const res = await alice.client.post(`/api/2/devices/${alice.username}/partial.json`, {
+      caption: "Updated Caption",
+    });
+    expect(res.status).toBe(200);
+
+    // Verify type unchanged
+    const getRes = await alice.client.get(`/api/2/devices/${alice.username}.json`);
+    const body = await alice.client.json(getRes);
+    const device = body.find((d: any) => d.id === "partial");
+    expect(device).toBeDefined();
+    expect(device.caption).toBe("Updated Caption");
+    expect(device.type).toBe("mobile");
+  });
+
+  test("15. GET devices - caption/type return empty string not null", async () => {
+    // Create device with empty fields (POST {})
+    await alice.client.post(`/api/2/devices/${alice.username}/empty-fields.json`, {});
+
+    const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
+    const body = await alice.client.json(res);
+    const device = body.find((d: any) => d.id === "empty-fields");
+    expect(device).toBeDefined();
+    // Per GPodder spec: should be empty string, not null
+    expect(device.caption).toBe("");
+    expect(device.type).toBe("");
+    expect(device.caption).not.toBeNull();
+    expect(device.type).not.toBeNull();
+  });
 });

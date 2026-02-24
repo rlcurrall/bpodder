@@ -1,5 +1,5 @@
 import { json, error } from "../lib/response";
-import { requireAuth, type SessionStore } from "../lib/auth";
+import { type PollTokenStore, type SessionStore, requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import type { DB } from "../db";
 import type { Config } from "../config";
@@ -16,6 +16,7 @@ interface HandlerContext {
   db: DB;
   config: Config;
   sessions: SessionStore;
+  pollTokens: PollTokenStore;
   logger: Logger;
 }
 
@@ -27,26 +28,15 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
       }
 
       try {
-        const token = crypto.randomUUID();
-        const tokenHash = await hashToken(token);
-        const now = Math.floor(Date.now() / 1000);
-        const expiresAt = now + 20 * 60; // 20 minutes
-
-        ctx.db.run(
-          "INSERT INTO poll_tokens (token_hash, user_id, created_at, expires_at, attempts) VALUES (?, NULL, ?, ?, 0)",
-          tokenHash,
-          now,
-          expiresAt
-        );
-
         const baseUrl = ctx.config.baseUrl || `${new URL(req.url).origin}`;
+        const { token, loginUrl } = await ctx.pollTokens.create(baseUrl);
 
         return json({
           poll: {
             token,
             endpoint: `${baseUrl}/index.php/login/v2/poll`,
           },
-          login: `${baseUrl}/login?token=${encodeURIComponent(token)}`,
+          login: loginUrl,
         });
       } catch (e) {
         ctx.logger.error({ err: e }, "NextCloud login init handler error");
@@ -68,65 +58,19 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
           return error("Missing token", 404);
         }
 
-        const tokenHash = await hashToken(token);
-        const now = Math.floor(Date.now() / 1000);
+        const result = await ctx.pollTokens.poll(token);
 
-        const row = ctx.db.first<{
-          user_id: number | null;
-          expires_at: number;
-          attempts: number;
-        }>(
-          "SELECT user_id, expires_at, attempts FROM poll_tokens WHERE token_hash = ?",
-          tokenHash
-        );
-
-        if (!row) {
+        if (!result) {
           return error("Invalid token", 404);
         }
 
-        if (row.expires_at < now) {
-          ctx.db.run("DELETE FROM poll_tokens WHERE token_hash = ?", tokenHash);
-          return error("Token expired", 404);
-        }
-
-        if (row.user_id === null) {
-          const newAttempts = row.attempts + 1;
-          if (newAttempts >= 10) {
-            ctx.db.run("DELETE FROM poll_tokens WHERE token_hash = ?", tokenHash);
-          } else {
-            ctx.db.run(
-              "UPDATE poll_tokens SET attempts = ? WHERE token_hash = ?",
-              newAttempts,
-              tokenHash
-            );
-          }
-          return error("Not authenticated", 404);
-        }
-
-        const user = ctx.db.first<{ name: string; password: string }>(
-          "SELECT name, password FROM users WHERE id = ?",
-          row.user_id
-        );
-
-        if (!user) {
-          return error("User not found", 404);
-        }
-
-        ctx.db.run("DELETE FROM poll_tokens WHERE token_hash = ?", tokenHash);
-
-        const encoder = new TextEncoder();
-        const data = encoder.encode(user.password + token);
-        const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-        const hashHex = Array.from(new Uint8Array(hashBuffer))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-        const appPassword = `${token}:${hashHex}`;
+        const { loginName, appPassword } = result;
 
         const baseUrl = ctx.config.baseUrl || `${new URL(req.url).origin}`;
 
         return json({
           server: baseUrl,
-          loginName: user.name,
+          loginName,
           appPassword,
         });
       } catch (e) {
@@ -164,7 +108,9 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
           }
         }
 
-        return json({ add, remove });
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        return json({ add, remove, timestamp });
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "NextCloud subscriptions handler error");
@@ -246,6 +192,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
 
           const rows = ctx.db.all<{
             url: string;
+            podcast: string | null;
             action: string;
             changed: number;
             position: number | null;
@@ -255,6 +202,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
           }>(
             `SELECT 
               ea.url,
+              s.url as podcast,
               ea.action,
               ea.changed,
               ea.position,
@@ -262,7 +210,9 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
               ea.total,
               ea.data
             FROM episodes_actions ea
-            WHERE ea.user = ? AND ea.changed >= ?
+            LEFT JOIN subscriptions s ON ea.subscription = s.id
+            LEFT JOIN devices d ON ea.device = d.id
+            WHERE ea.user = ? AND ea.uploaded_at >= ?
             ORDER BY ea.changed`,
             user.id,
             since
@@ -270,7 +220,7 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
 
           const actions = rows.map((row) => {
             const action: Record<string, unknown> = {
-              podcast: "",
+              podcast: row.podcast || "",
               episode: row.url,
               action: row.action,
               timestamp: new Date(row.changed * 1000)
@@ -326,8 +276,8 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
               if (!actionResult.success) continue;
 
               const action = actionResult.data;
-              const podcastUrl = action.podcast || "";
-              const episodeUrl = action.episode;
+              const podcastUrl = (action.podcast || "").trim();
+              const episodeUrl = action.episode.trim();
               const actionType = action.action;
 
               let subscription = ctx.db.first<{ id: number }>(
@@ -385,15 +335,18 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
                 }
               }
 
+              const uploadedAt = Math.floor(Date.now() / 1000);
+
               ctx.db.run(
-                `INSERT INTO episodes_actions 
-                 (user, subscription, episode, device, url, changed, action, position, started, total, data)
-                 VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO episodes_actions
+                 (user, subscription, episode, device, url, changed, uploaded_at, action, position, started, total, data)
+                 VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 user.id,
                 subscription?.id ?? null,
                 deviceId,
                 episodeUrl,
                 changed,
+                uploadedAt,
                 actionType,
                 position ?? null,
                 started ?? null,
@@ -421,13 +374,4 @@ export function createNextCloudHandlers(ctx: HandlerContext) {
       return error("Not implemented", 501);
     },
   };
-}
-
-async function hashToken(token: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
 }

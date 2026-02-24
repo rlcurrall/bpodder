@@ -45,6 +45,33 @@ export function createAuthHandlers(ctx: HandlerContext) {
           await ctx.pollTokens.authenticateToken(pollToken, 0);
         }
 
+        // Check for cookie-only auth (session validity check)
+        const cookieHeader = req.headers.get("Cookie");
+        if (cookieHeader) {
+          const match = cookieHeader.match(/sessionid=([^;]+)/);
+          if (match) {
+            const session = await ctx.sessions.get(match[1]);
+            if (session) {
+              const sessionUser = ctx.db.first<{ name: string }>(
+                "SELECT name FROM users WHERE id = ?",
+                session.userId
+              );
+              if (sessionUser && sessionUser.name === username) {
+                // Valid session cookie for this user - refresh and return success
+                const sessionId = await ctx.sessions.create(session.userId);
+                const headers = new Headers();
+                headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
+                headers.set("Content-Type", "application/json");
+                headers.set("Access-Control-Allow-Origin", "*");
+                return new Response(JSON.stringify({}), { status: 200, headers });
+              } else if (sessionUser && sessionUser.name !== username) {
+                // Cookie username mismatch per GPodder spec
+                return error("Cookie username mismatch", 400);
+              }
+            }
+          }
+        }
+
         try {
           const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
@@ -67,10 +94,21 @@ export function createAuthHandlers(ctx: HandlerContext) {
       }
 
       if (action === "logout") {
+        // Check cookie-username mismatch per GPodder spec
         const cookieHeader = req.headers.get("Cookie");
         if (cookieHeader) {
           const match = cookieHeader.match(/sessionid=([^;]+)/);
           if (match) {
+            const session = await ctx.sessions.get(match[1]);
+            if (session) {
+              const sessionUser = ctx.db.first<{ name: string }>(
+                "SELECT name FROM users WHERE id = ?",
+                session.userId
+              );
+              if (sessionUser && sessionUser.name !== username) {
+                return error("Cookie username mismatch", 400);
+              }
+            }
             await ctx.sessions.delete(match[1]);
           }
         }

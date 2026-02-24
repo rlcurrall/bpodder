@@ -169,19 +169,21 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
             }
           }
 
-          const updateUrls: (string | string[])[] = [];
+          const updateUrls: string[][] = [];
           const timestamp = Math.floor(Date.now() / 1000);
 
           ctx.db.transaction(() => {
             for (const u of addList) {
               const sanitized = sanitizeUrl(u);
               if (sanitized.modified) {
-                // GPodder API: flat array [old, new, old2, new2, ...]
-                updateUrls.push(u, sanitized.url);
+                // GPodder API: array of [old, new] tuples
+                updateUrls.push([u, sanitized.url]);
               }
 
               if (!isHttpUrl(sanitized.url)) {
-                throw new Error(`Invalid URL: ${sanitized.url}`);
+                // Per GPodder spec: rewrite non-HTTP URLs to empty string and skip
+                updateUrls.push([sanitized.url, '']);
+                continue;
               }
 
               const existing = ctx.db.first<{ id: number; deleted: number }>(
@@ -216,6 +218,16 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
 
             for (const u of removeList) {
               const sanitized = sanitizeUrl(u);
+              if (sanitized.modified) {
+                updateUrls.push([u, sanitized.url]);
+              }
+
+              if (!isHttpUrl(sanitized.url)) {
+                // Per GPodder spec: rewrite non-HTTP URLs to empty string and skip
+                updateUrls.push([sanitized.url, '']);
+                continue;
+              }
+
               ctx.db.run(
                 "UPDATE subscriptions SET deleted = 1, changed = ? WHERE user = ? AND url = ?",
                 timestamp,
@@ -233,9 +245,6 @@ export function createSubscriptionHandlers(ctx: HandlerContext) {
         if (e instanceof Response) return e;
         if (e instanceof ZodError) {
           return zodError(e);
-        }
-        if (e instanceof Error && e.message.startsWith("Invalid URL")) {
-          return error(e.message, 400);
         }
         ctx.logger.error({ err: e }, "V2 subscriptions handler error");
         return error("Server error", 500);

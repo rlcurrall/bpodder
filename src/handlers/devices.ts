@@ -32,8 +32,8 @@ export function createDeviceHandlers(ctx: HandlerContext) {
 
     return rows.map((row) => ({
       id: row.deviceid,
-      caption: row.caption,
-      type: row.type,
+      caption: row.caption ?? '',
+      type: row.type ?? '',
       subscriptions: subCount,
     }));
   };
@@ -91,17 +91,44 @@ export function createDeviceHandlers(ctx: HandlerContext) {
         const rawBody = await req.json().catch(() => ({}));
         const body = DeviceBody.parse(rawBody);
 
-        ctx.db.upsert(
-          "devices",
-          {
-            user: user.id,
-            deviceid,
-            caption: body.caption ?? null,
-            type: body.type ?? null,
-            data: null,
-          },
-          ["user", "deviceid"]
+        // Check if device exists
+        const existing = ctx.db.first<{ id: number; caption: string | null; type: string | null }>(
+          "SELECT id, caption, type FROM devices WHERE user = ? AND deviceid = ?",
+          user.id,
+          deviceid
         );
+
+        if (existing) {
+          // Existing device - only update supplied keys
+          const updates: string[] = [];
+          const params: (string | number)[] = [];
+          
+          if (Object.prototype.hasOwnProperty.call(rawBody, 'caption')) {
+            updates.push("caption = ?");
+            params.push(body.caption ?? '');
+          }
+          if (Object.prototype.hasOwnProperty.call(rawBody, 'type')) {
+            updates.push("type = ?");
+            params.push(body.type ?? '');
+          }
+          
+          if (updates.length > 0) {
+            params.push(existing.id);
+            ctx.db.run(
+              `UPDATE devices SET ${updates.join(", ")} WHERE id = ?`,
+              ...params
+            );
+          }
+        } else {
+          // New device - insert with provided values (default to empty string)
+          ctx.db.run(
+            "INSERT INTO devices (user, deviceid, caption, type, data) VALUES (?, ?, ?, ?, NULL)",
+            user.id,
+            deviceid,
+            body.caption ?? '',
+            body.type ?? ''
+          );
+        }
 
         return json({});
       } catch (e) {

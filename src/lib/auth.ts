@@ -144,7 +144,7 @@ export class PollTokenStore {
     this.db = db;
   }
 
-  async create(): Promise<{ token: string; loginUrl: string }> {
+  async create(baseUrl: string): Promise<{ token: string; loginUrl: string }> {
     const token = crypto.randomUUID();
     const tokenHash = await hashToken(token);
     const now = Math.floor(Date.now() / 1000);
@@ -157,7 +157,7 @@ export class PollTokenStore {
       expiresAt
     );
 
-    return { token, loginUrl: `/login?token=${encodeURIComponent(token)}` };
+    return { token, loginUrl: `${baseUrl}/login?token=${encodeURIComponent(token)}` };
   }
 
   async poll(token: string): Promise<{ userId: number; loginName: string; appPassword: string } | null> {
@@ -245,7 +245,7 @@ export class PollTokenStore {
   }
 }
 
-async function hashToken(token: string): Promise<string> {
+export async function hashToken(token: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(token);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -388,11 +388,6 @@ export async function requireAuth(
 
   if (!authenticatedUser) {
     throw error("Authentication required", 401);
-  }
-
-  // Check cookie-username mismatch (test #17)
-  if (sessionId && sessionUserId !== null && basicUser && basicUser.id !== sessionUserId) {
-    throw error("Cookie username mismatch", 400);
   }
 
   // Check URL username access control

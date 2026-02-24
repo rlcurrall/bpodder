@@ -146,20 +146,24 @@ describe("subscriptions", () => {
       expect(body.add).toContain(urlC);
     });
 
-    test("12. POST invalid URL (not http/https)", async () => {
+    test("12. POST invalid URL (not http/https) - rewritten to empty", async () => {
       const res = await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         add: ["ftp://example.com/feed"],
         remove: [],
       });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json(res);
+      expect(body.update_urls).toEqual([["ftp://example.com/feed", ""]]);
     });
 
-    test("13. POST empty string URL", async () => {
+    test("13. POST empty string URL (rewritten to empty)", async () => {
       const res = await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         add: [""],
         remove: [],
       });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json(res);
+      expect(body.update_urls).toEqual([["", ""]]);
     });
 
     test("14. POST body missing add/remove (tolerated)", async () => {
@@ -189,7 +193,7 @@ describe("subscriptions", () => {
       expect(res.status).toBe(400);
     });
 
-    test("16c. POST URL with whitespace (trimmed, update_urls)", async () => {
+    test("16c. POST URL with whitespace (trimmed, update_urls as tuple)", async () => {
       const urlWithSpace = " https://feeds.example.com/spaced.xml";
       const urlTrimmed = "https://feeds.example.com/spaced.xml";
 
@@ -199,7 +203,37 @@ describe("subscriptions", () => {
       });
       expect(res.status).toBe(200);
       const body = await alice.client.json(res);
-      expect(body.update_urls).toEqual([urlWithSpace, urlTrimmed]);
+      expect(body.update_urls).toEqual([[urlWithSpace, urlTrimmed]]);
+    });
+
+    test("16d. POST remove URL with whitespace (tracked in update_urls)", async () => {
+      const urlWithSpace = " https://feeds.example.com/remove-spaced.xml";
+      const urlTrimmed = "https://feeds.example.com/remove-spaced.xml";
+
+      // First add the URL
+      await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [urlTrimmed],
+        remove: [],
+      });
+
+      // Now remove with whitespace
+      const res = await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [],
+        remove: [urlWithSpace],
+      });
+      expect(res.status).toBe(200);
+      const body = await alice.client.json(res);
+      expect(body.update_urls).toEqual([[urlWithSpace, urlTrimmed]]);
+    });
+
+    test("16e. POST remove non-HTTP URL (rewritten to empty)", async () => {
+      const res = await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [],
+        remove: ["ftp://example.com/feed"],
+      });
+      expect(res.status).toBe(200);
+      const body = await alice.client.json(res);
+      expect(body.update_urls).toEqual([["ftp://example.com/feed", ""]]);
     });
   });
 

@@ -182,4 +182,28 @@ describe("auth", () => {
     // Per GPodder API: cookie-username mismatch returns 400
     expect(res.status).toBe(400);
   });
+
+  test("18. POST login with valid session cookie only (no Basic auth)", async () => {
+    // First login as alice to get session cookie
+    const loginRes = await alice.client.post("/api/2/auth/alice/login.json");
+    const sessionCookie = cookie(loginRes, "sessionid");
+    expect(sessionCookie).not.toBeNull();
+
+    // Now try cookie-only login (session validity check) - no Basic auth
+    const clientWithCookie = new Client(serverUrl).withCookie(`sessionid=${sessionCookie}`);
+    const res = await clientWithCookie.post("/api/2/auth/alice/login.json");
+
+    // Per GPodder spec: valid session returns 200 with refreshed cookie
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Set-Cookie")).toContain("sessionid=");
+  });
+
+  test("19. POST login with expired/invalid session cookie (401)", async () => {
+    // Try login with invalid session cookie - no Basic auth
+    const clientWithInvalidCookie = new Client(serverUrl).withCookie("sessionid=invalid_token_12345");
+    const res = await clientWithInvalidCookie.post("/api/2/auth/alice/login.json");
+
+    // Invalid session without Basic auth returns 401
+    expect(res.status).toBe(401);
+  });
 });

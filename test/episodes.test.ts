@@ -304,23 +304,28 @@ describe("episodes", () => {
       expect(action.guid).toBe(guid);
     });
 
-    test("17d. POST wrapped format { actions: [...] } (accepted)", async () => {
-      const res = await alice.client.post(`/api/2/episodes/${username}.json`, {
-        actions: [
-          {
-            podcast: podcastUrl,
-            episode: "http://example.com/ep-wrapped.mp3",
-            action: "download",
-            device: deviceId,
-          },
-        ],
-      });
-      expect(res.status).toBe(200);
+    test("17e. POST action with whitespace in URLs (tracked in update_urls)", async () => {
+      const podcastWithSpace = " http://example.com/spaced-feed.rss";
+      const podcastTrimmed = "http://example.com/spaced-feed.rss";
+      const episodeWithSpace = " http://example.com/spaced-episode.mp3";
+      const episodeTrimmed = "http://example.com/spaced-episode.mp3";
 
-      const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
-      const body = await alice.client.json(getRes);
-      const action = body.actions.find((a: any) => a.episode === "http://example.com/ep-wrapped.mp3");
-      expect(action).toBeDefined();
+      const res = await alice.client.post(`/api/2/episodes/${username}.json`, [
+        {
+          podcast: podcastWithSpace,
+          episode: episodeWithSpace,
+          action: "download",
+          device: deviceId,
+        },
+      ]);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json(res);
+      
+      // update_urls should contain both podcast and episode URL rewrites as tuples
+      expect(body.update_urls).toEqual([
+        [podcastWithSpace, podcastTrimmed],
+        [episodeWithSpace, episodeTrimmed],
+      ]);
     });
   });
 

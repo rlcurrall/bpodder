@@ -1,9 +1,12 @@
 import pino from "pino";
 import type { Config } from "../config";
 
-export function createLogger(cfg: Pick<Config, "debug">) {
+export function createLogger(cfg: Pick<Config, "logLevel" | "logFormat">) {
   return pino({
-    level: cfg.debug ? "debug" : "info",
+    level: cfg.logLevel,
+    transport: cfg.logFormat === "pretty"
+      ? { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss" } }
+      : undefined,
   });
 }
 

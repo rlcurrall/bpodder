@@ -177,24 +177,34 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
 
           ctx.db.transaction(() => {
             for (const action of actions) {
+              // Sanitize URLs - trim whitespace and track rewrites
+              const sanitizedPodcast = action.podcast.trim();
+              const sanitizedEpisode = action.episode.trim();
+              
+              if (sanitizedPodcast !== action.podcast) {
+                updateUrls.push([action.podcast, sanitizedPodcast]);
+              }
+              if (sanitizedEpisode !== action.episode) {
+                updateUrls.push([action.episode, sanitizedEpisode]);
+              }
 
               let subscription = ctx.db.first<{ id: number }>(
                 "SELECT id FROM subscriptions WHERE user = ? AND url = ? AND deleted = 0",
                 user.id,
-                action.podcast
+                sanitizedPodcast
               );
 
               if (!subscription) {
                 ctx.db.run(
                   "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
                   user.id,
-                  action.podcast,
+                  sanitizedPodcast,
                   timestamp
                 );
                 subscription = ctx.db.first<{ id: number }>(
                   "SELECT id FROM subscriptions WHERE user = ? AND url = ?",
                   user.id,
-                  action.podcast
+                  sanitizedPodcast
                 );
               }
 
@@ -234,9 +244,9 @@ export function createEpisodeHandlers(ctx: HandlerContext) {
                  (user, subscription, episode, device, url, changed, uploaded_at, action, position, started, total, data)
                  VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 user.id,
-                subscription!.id,
+                subscription?.id ?? null,
                 deviceId,
-                episode,
+                sanitizedEpisode,
                 changedTs,
                 timestamp,
                 actionType,

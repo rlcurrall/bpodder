@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "DEBUG=true bun run --watch src/index.ts | npx pino-pretty",
+    "dev": "LOG_LEVEL=debug bun run --watch src/index.ts",
     "test": "bun test",
     "update-feeds": "bun run src/index.ts --update-feeds"
   },
