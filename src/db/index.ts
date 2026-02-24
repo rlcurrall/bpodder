@@ -38,13 +38,13 @@ export class DB {
   }
 
   transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
+    this.db.run("BEGIN IMMEDIATE");
     try {
       const result = fn();
-      this.db.exec("COMMIT");
+      this.db.run("COMMIT");
       return result;
     } catch (error) {
-      this.db.exec("ROLLBACK");
+      this.db.run("ROLLBACK");
       throw error;
     }
   }
@@ -113,10 +113,10 @@ export function runMigrations(db: Database): void {
     const schemaPath = join(import.meta.dir, "schema.sql");
     try {
       const schema = readFileSync(schemaPath, "utf-8");
-      db.exec(schema);
+      db.run(schema);
       // Set version to 1 so migrations 1+ don't run on fresh databases
       // (schema.sql already includes all schema changes up to version 1)
-      db.exec("PRAGMA user_version = 1");
+      db.run("PRAGMA user_version = 1");
     } catch (error) {
       console.error("Failed to load schema.sql:", error);
       throw error;
@@ -151,13 +151,13 @@ export function runMigrations(db: Database): void {
   for (const migration of migrations) {
     if (migration.version > currentVersion) {
       const sql = readFileSync(migration.path, "utf-8");
-      db.exec("BEGIN IMMEDIATE");
+      db.run("BEGIN IMMEDIATE");
       try {
-        db.exec(sql);
-        db.exec(`PRAGMA user_version = ${migration.version}`);
-        db.exec("COMMIT");
+        db.run(sql);
+        db.run(`PRAGMA user_version = ${migration.version}`);
+        db.run("COMMIT");
       } catch (error) {
-        db.exec("ROLLBACK");
+        db.run("ROLLBACK");
         console.error(`Migration ${migration.version} failed:`, error);
         throw error;
       }
