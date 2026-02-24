@@ -11,11 +11,11 @@
     "update-feeds": "bun run src/index.ts --update-feeds"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "pino-pretty": "^13.1.3"
+    "@types/bun": "latest"
   },
   "dependencies": {
     "pino": "^10.3.1",
+    "pino-pretty": "^13.1.3",
     "zod": "^4.3.6"
   }
 }
