@@ -165,4 +165,104 @@ describe("opml", () => {
     const extractedUrls = extractFeedUrls(body);
     expect(extractedUrls).toContain(deviceFeed);
   });
+
+  test("9. OPML upload - basic import", async () => {
+    const opmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head><title>Test Feeds</title></head>
+  <body>
+    <outline type="rss" xmlUrl="https://upload1.example.com/feed.xml" title="Feed 1" />
+    <outline type="rss" xmlUrl="https://upload2.example.com/feed.xml" title="Feed 2" />
+  </body>
+</opml>`;
+
+    const res = await alice.client.put(`/subscriptions/${username}/opml-device.opml`, opmlContent, {
+      headers: { "Content-Type": "text/xml" },
+    });
+    expect(res.status).toBe(200);
+
+    // Verify feeds were added
+    const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-device.json`, {
+      since: "0",
+    });
+    const body = await alice.client.json(getRes);
+    expect(body.add).toContain("https://upload1.example.com/feed.xml");
+    expect(body.add).toContain("https://upload2.example.com/feed.xml");
+  });
+
+  test("10. OPML upload - XML entities decoded", async () => {
+    const opmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <body>
+    <outline type="rss" xmlUrl="https://example.com/feed?a=1&amp;b=2&quot;test&quot;" title="Feed" />
+  </body>
+</opml>`;
+
+    const res = await alice.client.put(
+      `/subscriptions/${username}/opml-entities.opml`,
+      opmlContent,
+      { headers: { "Content-Type": "text/xml" } },
+    );
+    expect(res.status).toBe(200);
+
+    // Verify URL was decoded (entities should be decoded)
+    const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-entities.json`, {
+      since: "0",
+    });
+    const body = await alice.client.json(getRes);
+    expect(body.add).toContain('https://example.com/feed?a=1&b=2"test"');
+  });
+
+  test("11. OPML upload - non-HTTP URLs filtered", async () => {
+    const opmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <body>
+    <outline type="rss" xmlUrl="https://valid.example.com/feed.xml" title="Valid" />
+    <outline type="rss" xmlUrl="ftp://invalid.example.com/feed.xml" title="Invalid FTP" />
+    <outline type="rss" xmlUrl="javascript://alert(1)" title="Invalid JS" />
+  </body>
+</opml>`;
+
+    const res = await alice.client.put(
+      `/subscriptions/${username}/opml-filtered.opml`,
+      opmlContent,
+      { headers: { "Content-Type": "text/xml" } },
+    );
+    expect(res.status).toBe(200);
+
+    // Verify only HTTP URL was added
+    const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-filtered.json`, {
+      since: "0",
+    });
+    const body = await alice.client.json(getRes);
+    expect(body.add).toContain("https://valid.example.com/feed.xml");
+    expect(body.add).not.toContain("ftp://invalid.example.com/feed.xml");
+    expect(body.add).not.toContain("javascript://alert(1)");
+  });
+
+  test("12. OPML upload - duplicates ignored", async () => {
+    const opmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <body>
+    <outline type="rss" xmlUrl="https://dup.example.com/feed.xml" title="Feed 1" />
+    <outline type="rss" xmlUrl="https://dup.example.com/feed.xml" title="Feed 2" />
+    <outline type="rss" xmlUrl="https://dup.example.com/feed.xml" title="Feed 3" />
+  </body>
+</opml>`;
+
+    const res = await alice.client.put(`/subscriptions/${username}/opml-dup.opml`, opmlContent, {
+      headers: { "Content-Type": "text/xml" },
+    });
+    expect(res.status).toBe(200);
+
+    // Verify only one instance was added
+    const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-dup.json`, {
+      since: "0",
+    });
+    const body = await alice.client.json(getRes);
+    const dupCount = body.add.filter(
+      (u: string) => u === "https://dup.example.com/feed.xml",
+    ).length;
+    expect(dupCount).toBe(1);
+  });
 });

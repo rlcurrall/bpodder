@@ -1,6 +1,7 @@
 import z4 from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
+import { parseOPML } from "../lib/opml";
 import { parseParam } from "../lib/params";
 import {
   opml,
@@ -35,13 +36,19 @@ export function createSubscriptionHandlers(ctx: AppContext): {
   opml: RouteDefinition<"/opml/:username/:deviceid">;
 } {
   // Shared logic for adding subscriptions
-  function addSubscriptions(userId: number, urls: string[], timestamp: number): void {
+  function addSubscriptions(
+    userId: number,
+    devicePk: number,
+    urls: string[],
+    timestamp: number,
+  ): void {
     for (const url of urls) {
       if (!isHttpUrl(url)) continue;
 
       const existing = ctx.db.first<{ id: number; deleted: number }>(
-        "SELECT id, deleted FROM subscriptions WHERE user = ? AND url = ?",
+        "SELECT id, deleted FROM subscriptions WHERE user = ? AND device = ? AND url = ?",
         userId,
+        devicePk,
         url,
       );
 
@@ -58,8 +65,9 @@ export function createSubscriptionHandlers(ctx: AppContext): {
         }
       } else {
         ctx.db.run(
-          "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
+          "INSERT INTO subscriptions (user, device, feed, url, deleted, changed, data) VALUES (?, ?, NULL, ?, 0, ?, NULL)",
           userId,
+          devicePk,
           url,
           timestamp,
         );
@@ -67,7 +75,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
     }
   }
 
-  function ensureDevice(userId: number, deviceId: string): void {
+  function ensureDevice(userId: number, deviceId: string): number {
     ctx.db.upsert(
       "devices",
       {
@@ -79,14 +87,27 @@ export function createSubscriptionHandlers(ctx: AppContext): {
       },
       ["user", "deviceid"],
     );
+
+    const device = ctx.db.first<{ id: number }>(
+      "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
+      userId,
+      deviceId,
+    );
+
+    return device!.id;
   }
 
-  // Build OPML response for user
-  function buildOPML(userId: number): string {
-    const subs = ctx.db.all<{ url: string; data: string | null }>(
-      "SELECT url, data FROM subscriptions WHERE user = ? AND deleted = 0",
-      userId,
-    );
+  // Build OPML response for user (all devices) or specific device
+  function buildOPML(userId: number, devicePk?: number): string {
+    let sql = "SELECT url, data FROM subscriptions WHERE user = ? AND deleted = 0";
+    const params: (number | string)[] = [userId];
+
+    if (devicePk) {
+      sql += " AND device = ?";
+      params.push(devicePk);
+    }
+
+    const subs = ctx.db.all<{ url: string; data: string | null }>(sql, ...params);
 
     let opmlContent = opmlHeader;
 
@@ -126,7 +147,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
           // Auto-create device if it doesn't exist (per GPodder API spec)
-          ensureDevice(user.id, deviceid);
+          const devicePk = ensureDevice(user.id, deviceid);
 
           const url = new URL(req.url);
           const since = parseInt(url.searchParams.get("since") ?? "0", 10) || 0;
@@ -136,8 +157,9 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             deleted: number;
             changed: number;
           }>(
-            "SELECT url, deleted, changed FROM subscriptions WHERE user = ? AND changed >= ?",
+            "SELECT url, deleted, changed FROM subscriptions WHERE user = ? AND device = ? AND changed >= ?",
             user.id,
+            devicePk,
             since,
           );
 
@@ -171,7 +193,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
           // Auto-create device if it doesn't exist (per GPodder API spec)
-          ensureDevice(user.id, deviceid);
+          const devicePk = ensureDevice(user.id, deviceid);
 
           const rawBody = await req.json();
           const parseResult = SubscriptionChangeBody.safeParse(rawBody);
@@ -207,8 +229,9 @@ export function createSubscriptionHandlers(ctx: AppContext): {
               }
 
               const existing = ctx.db.first<{ id: number; deleted: number }>(
-                "SELECT id, deleted FROM subscriptions WHERE user = ? AND url = ?",
+                "SELECT id, deleted FROM subscriptions WHERE user = ? AND device = ? AND url = ?",
                 user.id,
+                devicePk,
                 sanitized.url,
               );
 
@@ -228,8 +251,9 @@ export function createSubscriptionHandlers(ctx: AppContext): {
                 }
               } else {
                 ctx.db.run(
-                  "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
+                  "INSERT INTO subscriptions (user, device, feed, url, deleted, changed, data) VALUES (?, ?, NULL, ?, 0, ?, NULL)",
                   user.id,
+                  devicePk,
                   sanitized.url,
                   timestamp,
                 );
@@ -249,9 +273,10 @@ export function createSubscriptionHandlers(ctx: AppContext): {
               }
 
               ctx.db.run(
-                "UPDATE subscriptions SET deleted = 1, changed = ? WHERE user = ? AND url = ?",
+                "UPDATE subscriptions SET deleted = 1, changed = ? WHERE user = ? AND device = ? AND url = ?",
                 timestamp,
                 user.id,
+                devicePk,
                 sanitized.url,
               );
             }
@@ -282,7 +307,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
           const subs = ctx.db.all<{ url: string }>(
-            "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
+            "SELECT DISTINCT url FROM subscriptions WHERE user = ? AND deleted = 0",
             user.id,
           );
 
@@ -311,9 +336,9 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             return opml(buildOPML(user.id));
           }
 
-          // Default to JSON array
+          // Default to JSON array (distinct across all devices)
           const subs = ctx.db.all<{ url: string }>(
-            "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
+            "SELECT DISTINCT url FROM subscriptions WHERE user = ? AND deleted = 0",
             user.id,
           );
 
@@ -353,20 +378,22 @@ export function createSubscriptionHandlers(ctx: AppContext): {
 
           if (ext === "txt") {
             const subs = ctx.db.all<{ url: string }>(
-              "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
+              "SELECT url FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
               user.id,
+              device.id,
             );
             return ok(subs.map((s) => s.url).join("\n"));
           }
 
           if (ext === "opml") {
-            return opml(buildOPML(user.id));
+            return opml(buildOPML(user.id, device.id));
           }
 
           // Default JSON
           const subs = ctx.db.all<{ url: string }>(
-            "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
+            "SELECT url FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
             user.id,
+            device.id,
           );
           return ok(subs.map((s) => s.url));
         } catch (e) {
@@ -385,7 +412,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
         try {
           const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-          ensureDevice(user.id, deviceid);
+          const devicePk = ensureDevice(user.id, deviceid);
 
           let urls: string[] = [];
 
@@ -395,6 +422,10 @@ export function createSubscriptionHandlers(ctx: AppContext): {
               .split("\n")
               .map((u) => u.trim())
               .filter((u) => u && isHttpUrl(u));
+          } else if (ext === "opml") {
+            // OPML upload - parse XML and extract feed URLs
+            const body = await req.text();
+            urls = parseOPML(body).filter((u) => isHttpUrl(u));
           } else {
             // JSON (default)
             const rawBody = await req.json();
@@ -414,7 +445,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           }
 
           const timestamp = Math.floor(Date.now() / 1000);
-          addSubscriptions(user.id, urls, timestamp);
+          addSubscriptions(user.id, devicePk, urls, timestamp);
 
           return empty(200);
         } catch (e) {
@@ -444,6 +475,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
 
           const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
+          let devicePk: number | undefined;
           if (deviceid) {
             const device = ctx.db.first<{ id: number }>(
               "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
@@ -453,9 +485,10 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             if (!device) {
               return notFound("Device not found");
             }
+            devicePk = device.id;
           }
 
-          return opml(buildOPML(user.id));
+          return opml(buildOPML(user.id, devicePk));
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "OPML handler error");

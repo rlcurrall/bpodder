@@ -7,6 +7,7 @@ import { createDeviceHandlers } from "./handlers/devices";
 import { createEpisodeHandlers } from "./handlers/episodes";
 import { createSettingsHandlers } from "./handlers/settings";
 import { createSubscriptionHandlers } from "./handlers/subscriptions";
+import { createSyncHandlers } from "./handlers/sync";
 import { SessionStore } from "./lib/auth";
 import { createLogger } from "./lib/logger";
 import { createDefaultHandler } from "./lib/routing";
@@ -29,6 +30,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const subscriptions = createSubscriptionHandlers(ctx);
   const episodes = createEpisodeHandlers(ctx);
   const settings = createSettingsHandlers(ctx);
+  const sync = createSyncHandlers(ctx);
   const defaultHandler = createDefaultHandler(ctx);
   const loggingMiddleware = createLoggingMiddleware(ctx);
 
@@ -44,6 +46,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       "/api/2/subscriptions/:username/:deviceid": loggingMiddleware(subscriptions.subscriptionsV2),
       "/api/2/episodes/:username": loggingMiddleware(episodes.episodes),
       "/api/2/settings/:username/:scope": loggingMiddleware(settings.settings),
+      "/api/2/sync-devices/:username": loggingMiddleware(sync.syncDevices),
 
       // V2.11 all-devices subscription list (no deviceid)
       "/api/2/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsAll),

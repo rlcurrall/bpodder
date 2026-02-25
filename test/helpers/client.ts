@@ -79,14 +79,20 @@ export class Client {
     });
   }
 
-  async put(path: string, body?: unknown): Promise<Response> {
-    const headers: Record<string, string> = { ...this.headers };
+  async put(
+    path: string,
+    body?: unknown,
+    options?: { headers?: Record<string, string> },
+  ): Promise<Response> {
+    const headers: Record<string, string> = { ...this.headers, ...options?.headers };
     let requestBody: BodyInit | undefined;
 
     if (body !== undefined) {
       if (typeof body === "string") {
-        // Plain text (for .txt endpoints)
-        headers["Content-Type"] = "text/plain";
+        // Plain text (for .txt endpoints) - unless Content-Type specified in options
+        if (!headers["Content-Type"]) {
+          headers["Content-Type"] = "text/plain";
+        }
         requestBody = body;
       } else {
         headers["Content-Type"] = "application/json";

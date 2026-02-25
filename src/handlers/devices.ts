@@ -14,19 +14,25 @@ export function createDeviceHandlers(ctx: AppContext): {
       deviceid: string;
       caption: string | null;
       type: string | null;
-    }>("SELECT deviceid, caption, type FROM devices WHERE user = ?", userId);
-
-    const subCount =
-      ctx.db.first<{ count: number }>(
-        "SELECT COUNT(*) as count FROM subscriptions WHERE user = ? AND deleted = 0",
-        userId,
-      )?.count ?? 0;
+      subscriptions: number;
+    }>(
+      `
+      SELECT 
+        d.deviceid, 
+        d.caption, 
+        d.type,
+        (SELECT COUNT(*) FROM subscriptions s WHERE s.device = d.id AND s.deleted = 0) AS subscriptions
+      FROM devices d 
+      WHERE d.user = ?
+    `,
+      userId,
+    );
 
     return rows.map((row) => ({
       id: row.deviceid,
       caption: row.caption ?? "",
       type: row.type ?? "",
-      subscriptions: subCount,
+      subscriptions: row.subscriptions,
     }));
   };
 

@@ -198,36 +198,76 @@ export function createEpisodeHandlers(ctx: AppContext): {
                 updateUrls.push([action.episode, sanitizedEpisode]);
               }
 
-              let subscription = ctx.db.first<{ id: number }>(
-                "SELECT id FROM subscriptions WHERE user = ? AND url = ? AND deleted = 0",
+              // Look up subscription across all devices (for reuse)
+              let subscription = ctx.db.first<{ id: number; device: number }>(
+                "SELECT id, device FROM subscriptions WHERE user = ? AND url = ? AND deleted = 0",
                 user.id,
                 sanitizedPodcast,
               );
 
-              if (!subscription) {
-                ctx.db.run(
-                  "INSERT INTO subscriptions (user, feed, url, deleted, changed, data) VALUES (?, NULL, ?, 0, ?, NULL)",
-                  user.id,
-                  sanitizedPodcast,
-                  timestamp,
-                );
-                subscription = ctx.db.first<{ id: number }>(
-                  "SELECT id FROM subscriptions WHERE user = ? AND url = ?",
-                  user.id,
-                  sanitizedPodcast,
-                );
-              }
+              let subscriptionDeviceId: number | null = null;
 
-              let deviceId: number | null = null;
               if (action.device) {
+                // If action specifies a device, use that device for the subscription
                 const device = ctx.db.first<{ id: number }>(
                   "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
                   user.id,
                   action.device,
                 );
                 if (device) {
-                  deviceId = device.id;
+                  subscriptionDeviceId = device.id;
                 }
+              }
+
+              if (!subscription) {
+                // Create new subscription - use specified device or find/create default device
+                let devicePk = subscriptionDeviceId;
+
+                if (!devicePk) {
+                  // No device specified - find or create a default device
+                  let defaultDevice = ctx.db.first<{ id: number }>(
+                    "SELECT id FROM devices WHERE user = ? ORDER BY id LIMIT 1",
+                    user.id,
+                  );
+
+                  if (!defaultDevice) {
+                    // Create a default device
+                    ctx.db.run(
+                      "INSERT INTO devices (user, deviceid, caption, type, data) VALUES (?, ?, ?, ?, NULL)",
+                      user.id,
+                      "_default",
+                      "Default Device",
+                      "other",
+                    );
+                    defaultDevice = ctx.db.first<{ id: number }>(
+                      "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
+                      user.id,
+                      "_default",
+                    );
+                  }
+
+                  devicePk = defaultDevice!.id;
+                }
+
+                ctx.db.run(
+                  "INSERT INTO subscriptions (user, device, feed, url, deleted, changed, data) VALUES (?, ?, NULL, ?, 0, ?, NULL)",
+                  user.id,
+                  devicePk,
+                  sanitizedPodcast,
+                  timestamp,
+                );
+                subscription = ctx.db.first<{ id: number; device: number }>(
+                  "SELECT id, device FROM subscriptions WHERE user = ? AND device = ? AND url = ? AND deleted = 0",
+                  user.id,
+                  devicePk,
+                  sanitizedPodcast,
+                );
+              }
+
+              // Use the subscription's device for the episode action (unless action specifies different device)
+              let actionDeviceId: number | null = subscriptionDeviceId;
+              if (!actionDeviceId && subscription) {
+                actionDeviceId = subscription.device;
               }
 
               const {
@@ -246,11 +286,11 @@ export function createEpisodeHandlers(ctx: AppContext): {
 
               ctx.db.run(
                 `INSERT INTO episodes_actions
-                 (user, subscription, episode, device, url, changed, uploaded_at, action, position, started, total, data)
-                 VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  (user, subscription, episode, device, url, changed, uploaded_at, action, position, started, total, data)
+                  VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 user.id,
                 subscription?.id ?? null,
-                deviceId,
+                actionDeviceId,
                 sanitizedEpisode,
                 changedTs,
                 timestamp,

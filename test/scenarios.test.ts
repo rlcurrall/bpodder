@@ -138,7 +138,7 @@ describe("scenarios", () => {
       });
     });
 
-    test("Devices share subscriptions and episodes", async () => {
+    test("Devices have isolated subscriptions but share episodes", async () => {
       // 1. Create two devices
       await alice.client.post(`/api/2/devices/${username}/phone.json`, {
         caption: "Phone",
@@ -164,13 +164,27 @@ describe("scenarios", () => {
         remove: [],
       });
 
-      // 4. Phone GETs subscriptions → sees both X and Y
+      // 4. Phone GETs subscriptions → sees only feedX (per-device isolation)
       const phoneSubs = await alice.client.get(`/api/2/subscriptions/${username}/phone.json`, {
         since: "0",
       });
       const phoneBody = await alice.client.json(phoneSubs);
       expect(phoneBody.add).toContain(feedX);
-      expect(phoneBody.add).toContain(feedY);
+      expect(phoneBody.add).not.toContain(feedY); // Per-device: phone doesn't see tablet's subscriptions
+
+      // 4b. Tablet GETs subscriptions → sees only feedY (per-device isolation)
+      const tabletSubs = await alice.client.get(`/api/2/subscriptions/${username}/tablet.json`, {
+        since: "0",
+      });
+      const tabletBody = await alice.client.json(tabletSubs);
+      expect(tabletBody.add).toContain(feedY);
+      expect(tabletBody.add).not.toContain(feedX); // Per-device: tablet doesn't see phone's subscriptions
+
+      // 4c. User-level GET sees union of all device subscriptions
+      const userSubs = await alice.client.get(`/api/2/subscriptions/${username}.json`);
+      const userBody = await alice.client.json<string[]>(userSubs);
+      expect(userBody).toContain(feedX);
+      expect(userBody).toContain(feedY);
 
       // 5. Phone plays episode from X
       const epX = "http://example.com/scenario2-epX.mp3";
@@ -184,12 +198,12 @@ describe("scenarios", () => {
         },
       ]);
 
-      // 6. Tablet GETs episodes → sees Phone's play action
+      // 6. Tablet GETs episodes → sees Phone's play action (episodes are shared across devices)
       const tabletEps = await alice.client.get(`/api/2/episodes/${username}.json`, {
         since: "0",
       });
-      const tabletBody = await alice.client.json(tabletEps);
-      const playActions = tabletBody.actions.filter(
+      const tabletEpsBody = await alice.client.json(tabletEps);
+      const playActions = tabletEpsBody.actions.filter(
         (a: any) => a.episode === epX && a.action === "play",
       );
       expect(playActions.length).toBeGreaterThanOrEqual(1);
