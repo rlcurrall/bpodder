@@ -33,7 +33,12 @@ describe("subscriptions", () => {
         since: "0",
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toEqual([]);
       expect(body.remove).toEqual([]);
       expect(body.update_urls).toEqual([]);
@@ -46,7 +51,12 @@ describe("subscriptions", () => {
         remove: [],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(typeof body.timestamp).toBe("number");
       expect(body.update_urls).toEqual([]);
     });
@@ -55,7 +65,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlA);
       expect(body.remove).not.toContain(urlA);
     });
@@ -66,14 +81,24 @@ describe("subscriptions", () => {
         add: [urlA],
         remove: [],
       });
-      const addBody = await alice.client.json(addRes);
+      const addBody = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(addRes);
       const T1 = addBody.timestamp;
 
       // Query since T1 - should include urlA (inclusive)
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: String(T1),
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlA);
     });
 
@@ -88,7 +113,12 @@ describe("subscriptions", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(getRes);
       const urlACount = body.add.filter((u: string) => u === urlA).length;
       expect(urlACount).toBe(1);
     });
@@ -99,7 +129,12 @@ describe("subscriptions", () => {
         remove: [urlA],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(typeof body.timestamp).toBe("number");
     });
 
@@ -107,7 +142,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.remove).toContain(urlA);
       expect(body.add).not.toContain(urlA);
     });
@@ -125,13 +165,23 @@ describe("subscriptions", () => {
           remove: [urlA],
         },
       );
-      const removeBody = await alice.client.json(removeRes);
+      const removeBody = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(removeRes);
       const T2 = removeBody.timestamp;
 
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: String(T2),
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.remove).toContain(urlA);
     });
 
@@ -147,7 +197,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlA);
       // urlA should not be in remove anymore (or if it is, it's from old timestamp)
     });
@@ -161,7 +216,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlB);
       expect(body.add).toContain(urlC);
     });
@@ -172,7 +232,12 @@ describe("subscriptions", () => {
         remove: [],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.update_urls).toEqual([["ftp://example.com/feed", ""]]);
     });
 
@@ -182,7 +247,12 @@ describe("subscriptions", () => {
         remove: [],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.update_urls).toEqual([["", ""]]);
     });
 
@@ -202,7 +272,12 @@ describe("subscriptions", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(getRes);
       const urlACount = body.add.filter((u: string) => u === urlA).length;
       expect(urlACount).toBe(1);
     });
@@ -224,7 +299,12 @@ describe("subscriptions", () => {
         remove: [],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.update_urls).toEqual([[urlWithSpace, urlTrimmed]]);
     });
 
@@ -244,7 +324,12 @@ describe("subscriptions", () => {
         remove: [urlWithSpace],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.update_urls).toEqual([[urlWithSpace, urlTrimmed]]);
     });
 
@@ -254,7 +339,12 @@ describe("subscriptions", () => {
         remove: ["ftp://example.com/feed"],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.update_urls).toEqual([["ftp://example.com/feed", ""]]);
     });
   });
@@ -270,7 +360,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlA);
       expect(body.add).toContain(urlB);
     });
@@ -280,13 +375,23 @@ describe("subscriptions", () => {
         add: [urlA],
         remove: [],
       });
-      const addBody = await alice.client.json(addRes);
+      const addBody = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(addRes);
       const T1 = addBody.timestamp;
 
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: String(T1 + 1),
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).not.toContain(urlA);
     });
 
@@ -294,7 +399,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: String(Date.now() + 1000000000),
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toEqual([]);
       expect(body.remove).toEqual([]);
     });
@@ -314,7 +424,12 @@ describe("subscriptions", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(getRes);
       expect(body.add).toContain(urlA);
       expect(body.add).toContain(urlB);
     });
@@ -330,7 +445,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlA);
       expect(body.add).toContain(urlB);
       expect(body.add).toContain(urlC);
@@ -347,7 +467,12 @@ describe("subscriptions", () => {
       const res = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(res);
       expect(body.add).toContain(urlA);
     });
 
@@ -360,7 +485,12 @@ describe("subscriptions", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(getRes);
       expect(body.add).toContain("https://feeds.example.com/object-format.xml");
     });
 
@@ -375,7 +505,12 @@ describe("subscriptions", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(getRes);
       expect(body.add).toContain("https://feeds.example.com/txt1.xml");
       expect(body.add).toContain("https://feeds.example.com/txt2.xml");
     });
@@ -456,7 +591,12 @@ describe("subscriptions", () => {
       const getRes = await alice.client.get(`/api/2/subscriptions/${username}/${deviceId}.json`, {
         since: "0",
       });
-      const body = await alice.client.json(getRes);
+      const body = await alice.client.json<{
+        add: string[];
+        remove: string[];
+        update_urls: [string, string][];
+        timestamp: number;
+      }>(getRes);
       expect(body.add).toContain("https://feeds.example.com/txt-test.xml");
     });
 
@@ -519,8 +659,8 @@ describe("subscriptions", () => {
 
       // Verify device was created
       const devicesRes = await alice.client.get(`/api/2/devices/${username}.json`);
-      const devices = await alice.client.json(devicesRes);
-      const device = devices.find((d: any) => d.id === newDeviceId);
+      const devices = await alice.client.json<{ id: string; name: string }[]>(devicesRes);
+      const device = devices.find((d) => d.id === newDeviceId);
       expect(device).toBeDefined();
     });
 

@@ -41,7 +41,7 @@ describe("scenarios", () => {
         },
       );
       expect(initialSubs.status).toBe(200);
-      const initialBody = await alice.client.json(initialSubs);
+      const initialBody = await alice.client.json<{ add: string[]; remove: string[] }>(initialSubs);
       expect(initialBody.add).toEqual([]);
 
       // 3. POST add 3 feeds
@@ -53,7 +53,7 @@ describe("scenarios", () => {
         },
       );
       expect(addRes.status).toBe(200);
-      const addBody = await alice.client.json(addRes);
+      const addBody = await alice.client.json<{ timestamp: number }>(addRes);
       const T1 = addBody.timestamp;
 
       // 4. GET since=T1 → includes all 3 (inclusive)
@@ -63,7 +63,7 @@ describe("scenarios", () => {
           since: String(T1),
         },
       );
-      const verifyBody = await alice.client.json(verifySubs);
+      const verifyBody = await alice.client.json<{ add: string[]; remove: string[] }>(verifySubs);
       expect(verifyBody.add).toContain(url1);
       expect(verifyBody.add).toContain(url2);
       expect(verifyBody.add).toContain(url3);
@@ -94,11 +94,13 @@ describe("scenarios", () => {
       const verifyEpisodes = await alice.client.get(`/api/2/episodes/${username}.json`, {
         since: "0",
       });
-      const episodesBody = await alice.client.json(verifyEpisodes);
-      const actionsForEp1 = episodesBody.actions.filter((a: any) => a.episode === ep1);
+      const episodesBody = await alice.client.json<{
+        actions: { episode: string; action: string }[];
+      }>(verifyEpisodes);
+      const actionsForEp1 = episodesBody.actions.filter((a) => a.episode === ep1);
       expect(actionsForEp1.length).toBe(2);
-      expect(actionsForEp1.some((a: any) => a.action === "download")).toBe(true);
-      expect(actionsForEp1.some((a: any) => a.action === "play")).toBe(true);
+      expect(actionsForEp1.some((a) => a.action === "download")).toBe(true);
+      expect(actionsForEp1.some((a) => a.action === "play")).toBe(true);
 
       // 7. POST remove url1
       const removeRes = await alice.client.post(
@@ -109,7 +111,7 @@ describe("scenarios", () => {
         },
       );
       expect(removeRes.status).toBe(200);
-      const removeBody = await alice.client.json(removeRes);
+      const removeBody = await alice.client.json<{ timestamp: number }>(removeRes);
       const T3 = removeBody.timestamp;
 
       // 8. GET since=T3 → remove contains url1
@@ -119,7 +121,7 @@ describe("scenarios", () => {
           since: String(T3),
         },
       );
-      const finalBody = await alice.client.json(finalSubs);
+      const finalBody = await alice.client.json<{ add: string[]; remove: string[] }>(finalSubs);
       expect(finalBody.remove).toContain(url1);
     });
   });
@@ -168,7 +170,7 @@ describe("scenarios", () => {
       const phoneSubs = await alice.client.get(`/api/2/subscriptions/${username}/phone.json`, {
         since: "0",
       });
-      const phoneBody = await alice.client.json(phoneSubs);
+      const phoneBody = await alice.client.json<{ add: string[]; remove: string[] }>(phoneSubs);
       expect(phoneBody.add).toContain(feedX);
       expect(phoneBody.add).not.toContain(feedY); // Per-device: phone doesn't see tablet's subscriptions
 
@@ -176,7 +178,7 @@ describe("scenarios", () => {
       const tabletSubs = await alice.client.get(`/api/2/subscriptions/${username}/tablet.json`, {
         since: "0",
       });
-      const tabletBody = await alice.client.json(tabletSubs);
+      const tabletBody = await alice.client.json<{ add: string[]; remove: string[] }>(tabletSubs);
       expect(tabletBody.add).toContain(feedY);
       expect(tabletBody.add).not.toContain(feedX); // Per-device: tablet doesn't see phone's subscriptions
 
@@ -202,9 +204,11 @@ describe("scenarios", () => {
       const tabletEps = await alice.client.get(`/api/2/episodes/${username}.json`, {
         since: "0",
       });
-      const tabletEpsBody = await alice.client.json(tabletEps);
+      const tabletEpsBody = await alice.client.json<{
+        actions: { episode: string; action: string; device: string }[];
+      }>(tabletEps);
       const playActions = tabletEpsBody.actions.filter(
-        (a: any) => a.episode === epX && a.action === "play",
+        (a) => a.episode === epX && a.action === "play",
       );
       expect(playActions.length).toBeGreaterThanOrEqual(1);
       expect(playActions[0].device).toBe("phone");
@@ -244,7 +248,7 @@ describe("scenarios", () => {
         add: [],
         remove: [feedZ],
       });
-      const removeBody = await alice.client.json(removeRes);
+      const removeBody = await alice.client.json<{ timestamp: number }>(removeRes);
       const T2 = removeBody.timestamp;
 
       // 3. Re-subscribe to feedZ → T3
@@ -252,28 +256,28 @@ describe("scenarios", () => {
         add: [feedZ],
         remove: [],
       });
-      const resubBody = await alice.client.json(resubRes);
+      const resubBody = await alice.client.json<{ timestamp: number }>(resubRes);
       const T3 = resubBody.timestamp;
 
       // 4. GET since=0 → feedZ in add, not in remove (current state)
       const allRes = await alice.client.get(`/api/2/subscriptions/${username}/device.json`, {
         since: "0",
       });
-      const allBody = await alice.client.json(allRes);
+      const allBody = await alice.client.json<{ add: string[]; remove: string[] }>(allRes);
       expect(allBody.add).toContain(feedZ);
 
       // 5. GET since=T2 → feedZ in add (re-subscribe after T2)
       const sinceT2Res = await alice.client.get(`/api/2/subscriptions/${username}/device.json`, {
         since: String(T2),
       });
-      const sinceT2Body = await alice.client.json(sinceT2Res);
+      const sinceT2Body = await alice.client.json<{ add: string[]; remove: string[] }>(sinceT2Res);
       expect(sinceT2Body.add).toContain(feedZ);
 
       // 6. GET since=T3 → feedZ in add (inclusive)
       const sinceT3Res = await alice.client.get(`/api/2/subscriptions/${username}/device.json`, {
         since: String(T3),
       });
-      const sinceT3Body = await alice.client.json(sinceT3Res);
+      const sinceT3Body = await alice.client.json<{ add: string[]; remove: string[] }>(sinceT3Res);
       expect(sinceT3Body.add).toContain(feedZ);
     });
   });
@@ -350,8 +354,10 @@ describe("scenarios", () => {
       const allRes = await alice.client.get(`/api/2/episodes/${username}.json`, {
         since: "0",
       });
-      const allBody = await alice.client.json<EpisodesResponse>(allRes);
-      const allActions = allBody.actions.filter((a: any) => a.episode === episodeUrl);
+      const allBody = await alice.client.json<{
+        actions: { episode: string; action: string; device: string; position: number }[];
+      }>(allRes);
+      const allActions = allBody.actions.filter((a) => a.episode === episodeUrl);
       expect(allActions.length).toBe(2);
 
       // With aggregation - should see only latest action (tablet at position 250)
@@ -359,8 +365,10 @@ describe("scenarios", () => {
         since: "0",
         aggregated: "true",
       });
-      const aggBody = await alice.client.json<EpisodesResponse>(aggRes);
-      const aggActions = aggBody.actions.filter((a: any) => a.episode === episodeUrl);
+      const aggBody = await alice.client.json<{
+        actions: { episode: string; action: string; device: string; position: number }[];
+      }>(aggRes);
+      const aggActions = aggBody.actions.filter((a) => a.episode === episodeUrl);
       expect(aggActions.length).toBe(1);
       expect(aggActions[0].action).toBe("play");
       expect(aggActions[0].position).toBe(250);

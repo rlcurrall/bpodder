@@ -35,7 +35,10 @@ describe("devices", () => {
   test("3. GET devices after create", async () => {
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
     expect(res.status).toBe(200);
-    const body = await alice.client.json(res);
+    const body =
+      await alice.client.json<
+        { id: string; caption: string | null; type: string; subscriptions: number }[]
+      >(res);
     expect(body).toHaveLength(1);
     expect(body[0]).toMatchObject({
       id: "phone",
@@ -53,10 +56,13 @@ describe("devices", () => {
     });
 
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
-    const body = await alice.client.json(res);
-    const phoneDevice = body.find((d: any) => d.id === "phone");
+    const body =
+      await alice.client.json<
+        { id: string; caption: string | null; type: string; subscriptions: number }[]
+      >(res);
+    const phoneDevice = body.find((d) => d.id === "phone");
     expect(phoneDevice).toBeDefined();
-    expect(phoneDevice.subscriptions).toBeGreaterThanOrEqual(2);
+    expect(phoneDevice!.subscriptions).toBeGreaterThanOrEqual(2);
   });
 
   test("4. POST same deviceid again with updated caption (upsert)", async () => {
@@ -69,8 +75,11 @@ describe("devices", () => {
 
   test("5. GET devices — caption reflects update", async () => {
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
-    const body = await alice.client.json(res);
-    expect(body[0].caption).toBe("Alice's Updated Phone");
+    const body =
+      await alice.client.json<{ id: string; caption: string | null; type: string }[]>(res);
+    const phoneDevice = body.find((d) => d.id === "phone");
+    expect(phoneDevice).toBeDefined();
+    expect(phoneDevice!.caption).toBe("Alice's Updated Phone");
   });
 
   test("6. POST second device", async () => {
@@ -83,10 +92,11 @@ describe("devices", () => {
 
   test("7. GET devices — both present", async () => {
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
-    const body = await alice.client.json(res);
+    const body =
+      await alice.client.json<{ id: string; caption: string | null; type: string }[]>(res);
     expect(body).toHaveLength(2);
-    expect(body.map((d: any) => d.id)).toContain("phone");
-    expect(body.map((d: any) => d.id)).toContain("tablet");
+    expect(body.map((d) => d.id)).toContain("phone");
+    expect(body.map((d) => d.id)).toContain("tablet");
   });
 
   test("8. POST device with empty body {}", async () => {
@@ -96,11 +106,12 @@ describe("devices", () => {
 
   test("9. GET that device — present with empty/null caption", async () => {
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
-    const body = await alice.client.json(res);
-    const minimalDevice = body.find((d: any) => d.id === "minimal");
+    const body =
+      await alice.client.json<{ id: string; caption: string | null; type: string }[]>(res);
+    const minimalDevice = body.find((d) => d.id === "minimal");
     expect(minimalDevice).toBeDefined();
     // Caption should be null or empty, but device should exist
-    expect([null, undefined, ""]).toContain(minimalDevice.caption);
+    expect([null, undefined, ""]).toContain(minimalDevice!.caption);
   });
 
   test("10. POST device — deviceid with spaces", async () => {
@@ -136,7 +147,8 @@ describe("devices", () => {
   test("13. GET devices as current", async () => {
     const res = await alice.client.get("/api/2/devices/current.json");
     expect(res.status).toBe(200);
-    const body = await alice.client.json(res);
+    const body =
+      await alice.client.json<{ id: string; caption: string | null; type: string }[]>(res);
     expect(body.length).toBeGreaterThan(0);
   });
 
@@ -155,11 +167,12 @@ describe("devices", () => {
 
     // Verify type unchanged
     const getRes = await alice.client.get(`/api/2/devices/${alice.username}.json`);
-    const body = await alice.client.json(getRes);
-    const device = body.find((d: any) => d.id === "partial");
+    const body =
+      await alice.client.json<{ id: string; caption: string | null; type: string }[]>(getRes);
+    const device = body.find((d) => d.id === "partial");
     expect(device).toBeDefined();
-    expect(device.caption).toBe("Updated Caption");
-    expect(device.type).toBe("mobile");
+    expect(device!.caption).toBe("Updated Caption");
+    expect(device!.type).toBe("mobile");
   });
 
   test("15. GET devices - caption/type return empty string not null", async () => {
@@ -167,13 +180,14 @@ describe("devices", () => {
     await alice.client.post(`/api/2/devices/${alice.username}/empty-fields.json`, {});
 
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
-    const body = await alice.client.json(res);
-    const device = body.find((d: any) => d.id === "empty-fields");
+    const body =
+      await alice.client.json<{ id: string; caption: string | null; type: string }[]>(res);
+    const device = body.find((d) => d.id === "empty-fields");
     expect(device).toBeDefined();
     // Per GPodder spec: should be empty string, not null
-    expect(device.caption).toBe("");
-    expect(device.type).toBe("");
-    expect(device.caption).not.toBeNull();
-    expect(device.type).not.toBeNull();
+    expect(device!.caption).toBe("");
+    expect(device!.type).toBe("");
+    expect(device!.caption).not.toBeNull();
+    expect(device!.type).not.toBeNull();
   });
 });

@@ -42,7 +42,7 @@ describe("settings", () => {
     test("GET account settings — returns saved values", async () => {
       const res = await alice.client.get(`/api/2/settings/${alice.username}/account.json`);
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{ theme: string; language: string }>(res);
       expect(body.theme).toBe("dark");
       expect(body.language).toBe("en");
     });
@@ -60,7 +60,11 @@ describe("settings", () => {
         remove: ["language"],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        theme: string;
+        notifications: boolean;
+        language?: string;
+      }>(res);
       expect(body.theme).toBe("light");
       expect(body.notifications).toBe(true);
       expect(body.language).toBeUndefined();
@@ -88,7 +92,7 @@ describe("settings", () => {
         },
       );
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{ autoplay: boolean; volume: number }>(res);
       expect(body.autoplay).toBe(true);
       expect(body.volume).toBe(0.8);
     });
@@ -115,14 +119,14 @@ describe("settings", () => {
       const phoneRes = await alice.client.get(
         `/api/2/settings/${alice.username}/device.json?device=phone`,
       );
-      const phoneBody = await alice.client.json(phoneRes);
+      const phoneBody = await alice.client.json<{ theme: string }>(phoneRes);
       expect(phoneBody.theme).toBe("dark");
 
       // Verify tablet settings
       const tabletRes = await alice.client.get(
         `/api/2/settings/${alice.username}/device.json?device=tablet`,
       );
-      const tabletBody = await alice.client.json(tabletRes);
+      const tabletBody = await alice.client.json<{ theme: string }>(tabletRes);
       expect(tabletBody.theme).toBe("light");
     });
   });
@@ -144,7 +148,7 @@ describe("settings", () => {
         },
       );
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{ speed: number; autoDownload: boolean }>(res);
       expect(body.speed).toBe(1.5);
       expect(body.autoDownload).toBe(false);
     });
@@ -175,7 +179,7 @@ describe("settings", () => {
         },
       );
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{ position: number; completed: boolean }>(res);
       expect(body.position).toBe(120);
       expect(body.completed).toBe(false);
     });
@@ -236,7 +240,14 @@ describe("settings", () => {
         remove: [],
       });
       expect(res.status).toBe(200);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        string: string;
+        number: number;
+        boolean: boolean;
+        null: null;
+        array: number[];
+        object: { nested: string };
+      }>(res);
       expect(body.string).toBe("hello");
       expect(body.number).toBe(42);
       expect(body.boolean).toBe(true);
@@ -254,7 +265,7 @@ describe("settings", () => {
 
       // Get and verify
       const res = await alice.client.get(`/api/2/settings/${alice.username}/account.json`);
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{ testValue: { nested: number[] } }>(res);
       expect(body.testValue).toEqual({ nested: [1, 2, 3] });
     });
   });

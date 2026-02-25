@@ -22,7 +22,10 @@ describe("sync-devices", () => {
       const res = await alice.client.get(`/api/2/sync-devices/${username}.json`);
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toEqual([]);
       expect(body["not-synchronized"]).toEqual([]);
     });
@@ -41,7 +44,10 @@ describe("sync-devices", () => {
       const res = await alice.client.get(`/api/2/sync-devices/${username}.json`);
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toEqual([]);
       expect(body["not-synchronized"]).toContain("phone");
       expect(body["not-synchronized"]).toContain("tablet");
@@ -56,7 +62,10 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toHaveLength(1);
       expect(body.synchronized[0]).toContain("phone");
       expect(body.synchronized[0]).toContain("tablet");
@@ -67,7 +76,10 @@ describe("sync-devices", () => {
       const res = await alice.client.get(`/api/2/sync-devices/${username}.json`);
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toHaveLength(1);
       expect(body.synchronized[0]).toContain("phone");
       expect(body.synchronized[0]).toContain("tablet");
@@ -87,7 +99,10 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toHaveLength(1);
       expect(body.synchronized[0]).toContain("phone");
       expect(body.synchronized[0]).toContain("tablet");
@@ -112,15 +127,18 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toHaveLength(2);
 
       // Find the group containing desktop and tv
-      const desktopGroup = body.synchronized.find((g: string[]) => g.includes("desktop"));
+      const desktopGroup = body.synchronized.find((g) => g.includes("desktop"));
       expect(desktopGroup).toContain("tv");
 
       // The original phone/tablet/laptop group should still exist
-      const mobileGroup = body.synchronized.find((g: string[]) => g.includes("phone"));
+      const mobileGroup = body.synchronized.find((g) => g.includes("phone"));
       expect(mobileGroup).toContain("tablet");
       expect(mobileGroup).toContain("laptop");
     });
@@ -135,8 +153,8 @@ describe("sync-devices", () => {
     test("7b. Merge multiple existing sync groups", async () => {
       // Ensure all devices exist (they may not if running test in isolation)
       const devicesRes = await alice.client.get(`/api/2/devices/${username}.json`);
-      const existingDevices = await alice.client.json(devicesRes);
-      const deviceIds = new Set(existingDevices.map((d: { id: string }) => d.id));
+      const existingDevices = await alice.client.json<{ id: string; name: string }[]>(devicesRes);
+      const deviceIds = new Set(existingDevices.map((d) => d.id));
 
       // Create any missing devices
       if (!deviceIds.has("phone")) {
@@ -189,7 +207,10 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       // All 4 devices should now be in a single group (tv is unsynced)
       expect(body.synchronized).toHaveLength(1);
       expect(body.synchronized[0]).toHaveLength(4);
@@ -218,7 +239,10 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       // Tablet should still be in a group (now alone)
       expect(body.synchronized).toHaveLength(1);
       expect(body.synchronized[0]).toContain("tablet");
@@ -243,7 +267,10 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toEqual([]);
       expect(body["not-synchronized"]).toContain("phone");
       expect(body["not-synchronized"]).toContain("tablet");
@@ -290,7 +317,10 @@ describe("sync-devices", () => {
       });
       expect(res.status).toBe(200);
 
-      const body = await alice.client.json(res);
+      const body = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(res);
       expect(body.synchronized).toHaveLength(1);
       expect(body.synchronized[0]).toContain("phone");
       expect(body.synchronized[0]).toContain("laptop");
@@ -323,14 +353,20 @@ describe("sync-devices", () => {
 
       // Verify Alice's sync status is unchanged
       const aliceRes = await alice.client.get(`/api/2/sync-devices/${username}.json`);
-      const aliceBody = await alice.client.json(aliceRes);
+      const aliceBody = await alice.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(aliceRes);
 
       // Alice should still have her sync groups from previous tests
       expect(aliceBody.synchronized.length).toBeGreaterThanOrEqual(0);
 
       // Verify Bob's sync status
       const bobRes = await bob.client.get(`/api/2/sync-devices/${bobUsername}.json`);
-      const bobBody = await bob.client.json(bobRes);
+      const bobBody = await bob.client.json<{
+        synchronized: string[][];
+        "not-synchronized": string[];
+      }>(bobRes);
       expect(bobBody.synchronized).toHaveLength(1);
       expect(bobBody.synchronized[0]).toContain("phone");
       expect(bobBody.synchronized[0]).toContain("tablet");

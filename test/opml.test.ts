@@ -185,7 +185,7 @@ describe("opml", () => {
     const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-device.json`, {
       since: "0",
     });
-    const body = await alice.client.json(getRes);
+    const body = await alice.client.json<{ add: string[]; remove: string[] }>(getRes);
     expect(body.add).toContain("https://upload1.example.com/feed.xml");
     expect(body.add).toContain("https://upload2.example.com/feed.xml");
   });
@@ -209,7 +209,7 @@ describe("opml", () => {
     const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-entities.json`, {
       since: "0",
     });
-    const body = await alice.client.json(getRes);
+    const body = await alice.client.json<{ add: string[]; remove: string[] }>(getRes);
     expect(body.add).toContain('https://example.com/feed?a=1&b=2"test"');
   });
 
@@ -234,7 +234,7 @@ describe("opml", () => {
     const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-filtered.json`, {
       since: "0",
     });
-    const body = await alice.client.json(getRes);
+    const body = await alice.client.json<{ add: string[]; remove: string[] }>(getRes);
     expect(body.add).toContain("https://valid.example.com/feed.xml");
     expect(body.add).not.toContain("ftp://invalid.example.com/feed.xml");
     expect(body.add).not.toContain("javascript://alert(1)");
@@ -259,7 +259,7 @@ describe("opml", () => {
     const getRes = await alice.client.get(`/api/2/subscriptions/${username}/opml-dup.json`, {
       since: "0",
     });
-    const body = await alice.client.json(getRes);
+    const body = await alice.client.json<{ add: string[]; remove: string[] }>(getRes);
     const dupCount = body.add.filter(
       (u: string) => u === "https://dup.example.com/feed.xml",
     ).length;
