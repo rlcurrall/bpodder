@@ -5,6 +5,7 @@ import { createDB } from "./db";
 import { createAuthHandlers } from "./handlers/auth";
 import { createDeviceHandlers } from "./handlers/devices";
 import { createEpisodeHandlers } from "./handlers/episodes";
+import { createSettingsHandlers } from "./handlers/settings";
 import { createSubscriptionHandlers } from "./handlers/subscriptions";
 import { SessionStore } from "./lib/auth";
 import { createLogger } from "./lib/logger";
@@ -27,6 +28,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const devices = createDeviceHandlers(ctx);
   const subscriptions = createSubscriptionHandlers(ctx);
   const episodes = createEpisodeHandlers(ctx);
+  const settings = createSettingsHandlers(ctx);
   const defaultHandler = createDefaultHandler(ctx);
   const loggingMiddleware = createLoggingMiddleware(ctx);
 
@@ -41,6 +43,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       "/api/2/devices/:username/:deviceid": loggingMiddleware(devices.upsertDevice),
       "/api/2/subscriptions/:username/:deviceid": loggingMiddleware(subscriptions.subscriptionsV2),
       "/api/2/episodes/:username": loggingMiddleware(episodes.episodes),
+      "/api/2/settings/:username/:scope": loggingMiddleware(settings.settings),
 
       // V2.11 all-devices subscription list (no deviceid)
       "/api/2/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsAll),
