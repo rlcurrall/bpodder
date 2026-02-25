@@ -1,4 +1,4 @@
-import { handleOptions, error } from "./response";
+import { options, error } from "./response";
 
 export function createDefaultHandler(ctx: AppContext): RouteHandler<string> {
   const { logger, config } = ctx;
@@ -7,7 +7,7 @@ export function createDefaultHandler(ctx: AppContext): RouteHandler<string> {
     const start = performance.now();
 
     if (req.method === "OPTIONS") {
-      const res = handleOptions();
+      const res = options();
       logger.info(
         {
           method: req.method,

@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { error } from "./response";
-
 export function isHttpUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -9,11 +7,6 @@ export function isHttpUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function zodError(err: z.ZodError): Response {
-  const firstIssue = err.issues[0];
-  return error(firstIssue?.message ?? "Validation failed", 400);
 }
 
 export const RegisterBody = z

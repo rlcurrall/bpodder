@@ -1,21 +1,24 @@
-import { ZodError } from "zod";
+import z4 from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
-import { json, error } from "../lib/response";
-import { EpisodePostBody, zodError } from "../lib/schemas";
+import { badRequest, options, methodNotAllowed, notFound, ok, serverError } from "../lib/response";
+import { EpisodePostBody } from "../lib/schemas";
 
 export function createEpisodeHandlers(ctx: AppContext): {
-  episodes: RouteDefinition<"/api/3/episodes/:username">;
+  episodes: RouteDefinition<"/api/2/episodes/:username">;
 } {
   return {
     episodes: {
+      OPTIONS: options(["GET", "POST", "OPTIONS"]),
+      PUT: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
       async GET(req) {
         const rawUsername = req.params.username;
         const { value: username } = parseParam(rawUsername);
 
         if (!username) {
-          return error("Invalid route", 404);
+          return notFound("Invalid route");
         }
 
         try {
@@ -135,18 +138,18 @@ export function createEpisodeHandlers(ctx: AppContext): {
 
           const timestamp = Math.floor(Date.now() / 1000);
 
-          return json({
+          return ok({
             timestamp,
             actions,
             update_urls: [],
           });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof ZodError) {
-            return zodError(e);
+          if (e instanceof z4.ZodError) {
+            return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Episodes handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
       async POST(req) {
@@ -154,7 +157,7 @@ export function createEpisodeHandlers(ctx: AppContext): {
         const { value: username } = parseParam(rawUsername);
 
         if (!username) {
-          return error("Invalid route", 404);
+          return notFound("Invalid route");
         }
 
         try {
@@ -164,7 +167,7 @@ export function createEpisodeHandlers(ctx: AppContext): {
           const parseResult = EpisodePostBody.safeParse(rawBody);
 
           if (!parseResult.success) {
-            return zodError(parseResult.error);
+            return badRequest(parseResult.error);
           }
 
           const actions = Array.isArray(parseResult.data)
@@ -174,7 +177,7 @@ export function createEpisodeHandlers(ctx: AppContext): {
           const timestamp = Math.floor(Date.now() / 1000);
 
           if (actions.length === 0) {
-            return json({
+            return ok({
               timestamp,
               update_urls: [],
             });
@@ -260,17 +263,17 @@ export function createEpisodeHandlers(ctx: AppContext): {
             }
           });
 
-          return json({
+          return ok({
             timestamp,
             update_urls: updateUrls,
           });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof ZodError) {
-            return zodError(e);
+          if (e instanceof z4.ZodError) {
+            return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Episodes handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },

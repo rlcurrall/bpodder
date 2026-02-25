@@ -1,9 +1,18 @@
-import { ZodError } from "zod";
+import z4 from "zod/v4";
 
 import { requireAuth, createSessionCookie, clearSessionCookie } from "../lib/auth";
 import { parseParam } from "../lib/params";
-import { json, error } from "../lib/response";
-import { RegisterBody, zodError } from "../lib/schemas";
+import {
+  badRequest,
+  error,
+  forbidden,
+  methodNotAllowed,
+  notFound,
+  ok,
+  options,
+  unauthorized,
+} from "../lib/response";
+import { RegisterBody } from "../lib/schemas";
 
 export function createAuthHandlers(ctx: AppContext): {
   auth: RouteDefinition<"/api/2/auth/:username/:action">;
@@ -13,16 +22,16 @@ export function createAuthHandlers(ctx: AppContext): {
   return {
     // /api/2/auth/:username/:action → action = "login.json" | "logout.json"
     auth: {
-      async GET() {
-        // GET not allowed on auth endpoints per GPodder spec
-        return error("Method not allowed", 405);
-      },
+      OPTIONS: options(["POST", "OPTIONS"]),
+      GET: methodNotAllowed(),
+      PUT: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
       async POST(req) {
         const username = req.params.username;
         const { value: action } = parseParam(req.params.action);
 
         if (!username || !action) {
-          return error("Invalid route", 404);
+          return notFound("Invalid route");
         }
 
         const isSecure = ctx.config.baseUrl.startsWith("https");
@@ -52,7 +61,7 @@ export function createAuthHandlers(ctx: AppContext): {
                   });
                 } else if (sessionUser && sessionUser.name !== username) {
                   // Cookie username mismatch per GPodder spec
-                  return error("Cookie username mismatch", 400);
+                  return badRequest("Cookie username mismatch");
                 }
               }
             }
@@ -71,7 +80,7 @@ export function createAuthHandlers(ctx: AppContext): {
           } catch (e) {
             if (e instanceof Response) return e;
             ctx.logger.error({ err: e }, "Login handler error");
-            return error("Authentication failed", 401);
+            return unauthorized("Authentication failed");
           }
         }
 
@@ -88,7 +97,7 @@ export function createAuthHandlers(ctx: AppContext): {
                   session.userId,
                 );
                 if (sessionUser && sessionUser.name !== username) {
-                  return error("Cookie username mismatch", 400);
+                  return badRequest("Cookie username mismatch");
                 }
               }
               await ctx.sessions.delete(match[1]);
@@ -103,14 +112,18 @@ export function createAuthHandlers(ctx: AppContext): {
           return new Response(JSON.stringify({}), { status: 200, headers });
         }
 
-        return error("Unknown action", 404);
+        return notFound("Unknown action");
       },
     },
 
     register: {
+      OPTIONS: options(["POST", "OPTIONS"]),
+      GET: methodNotAllowed(),
+      PUT: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
       async POST(req) {
         if (!ctx.config.enableRegistration) {
-          return error("Registration is disabled", 403);
+          return forbidden("Registration is disabled");
         }
 
         try {
@@ -118,7 +131,7 @@ export function createAuthHandlers(ctx: AppContext): {
           const parseResult = RegisterBody.safeParse(rawBody);
 
           if (!parseResult.success) {
-            return zodError(parseResult.error);
+            return badRequest(parseResult.error);
           }
 
           const { username, password } = parseResult.data;
@@ -128,19 +141,19 @@ export function createAuthHandlers(ctx: AppContext): {
             username,
           );
           if (existing) {
-            return error("Username already exists", 400);
+            return badRequest("Username already exists");
           }
 
           const passwordHash = await Bun.password.hash(password);
           ctx.db.run("INSERT INTO users (name, password) VALUES (?, ?)", username, passwordHash);
 
-          return json({});
+          return ok({});
         } catch (e) {
-          if (e instanceof ZodError) {
-            return zodError(e);
+          if (e instanceof z4.ZodError) {
+            return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Registration handler error");
-          return error("Invalid request body", 400);
+          return badRequest("Invalid request body");
         }
       },
     },
@@ -148,9 +161,9 @@ export function createAuthHandlers(ctx: AppContext): {
     async health() {
       try {
         ctx.db.first("SELECT 1");
-        return json({ status: "ok" });
-      } catch (e) {
-        ctx.logger.error({ err: e }, "Health check error");
+        return ok({ status: "ok" });
+      } catch (err) {
+        ctx.logger.error({ err }, "Health check error");
         return error("Database unavailable", 503);
       }
     },

@@ -1,6 +1,6 @@
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
-import { json, error } from "../lib/response";
+import { options, methodNotAllowed, ok, forbidden, serverError, badRequest } from "../lib/response";
 import { DeviceBody } from "../lib/schemas";
 
 const validDeviceId = /^[\w.-]+$/;
@@ -33,30 +33,38 @@ export function createDeviceHandlers(ctx: AppContext): {
   return {
     // /api/2/devices/:username → username = "alice.json"
     listDevices: {
+      OPTIONS: options(["GET", "OPTIONS"]),
+      PUT: methodNotAllowed(),
+      POST: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
       async GET(req) {
         try {
           const { value: username } = parseParam(req.params.username);
           const user = await requireAuth(req, ctx.db, ctx.sessions);
 
           if (username === "current") {
-            return json(getDevicesWithCount(user.id));
+            return ok(getDevicesWithCount(user.id));
           }
 
           if (username !== user.name) {
-            return error("Access denied", 403);
+            return forbidden("Access denied");
           }
 
-          return json(getDevicesWithCount(user.id));
+          return ok(getDevicesWithCount(user.id));
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "List devices handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },
 
     // /api/2/devices/:username/:deviceid → deviceid = "phone.json"
     upsertDevice: {
+      OPTIONS: options(["POST", "OPTIONS"]),
+      GET: methodNotAllowed(),
+      PUT: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
       async POST(req) {
         try {
           const { value: username } = parseParam(req.params.username);
@@ -64,11 +72,11 @@ export function createDeviceHandlers(ctx: AppContext): {
           const user = await requireAuth(req, ctx.db, ctx.sessions);
 
           if (username !== "current" && username !== user.name) {
-            return error("Access denied", 403);
+            return forbidden("Access denied");
           }
 
           if (!validDeviceId.test(deviceid)) {
-            return error("Invalid device ID", 400);
+            return badRequest("Invalid device ID");
           }
 
           const rawBody = await req.json().catch(() => ({}));
@@ -114,11 +122,11 @@ export function createDeviceHandlers(ctx: AppContext): {
             );
           }
 
-          return json({});
+          return ok({});
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "Upsert device handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },

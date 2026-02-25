@@ -1,9 +1,18 @@
-import { ZodError } from "zod";
+import z4 from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
-import { json, empty, text, opml, error } from "../lib/response";
-import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl, zodError } from "../lib/schemas";
+import {
+  opml,
+  options,
+  methodNotAllowed,
+  ok,
+  serverError,
+  empty,
+  badRequest,
+  notFound,
+} from "../lib/response";
+import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl } from "../lib/schemas";
 
 function sanitizeUrl(url: string): { url: string; modified: boolean } {
   const trimmed = url.trim();
@@ -105,6 +114,10 @@ export function createSubscriptionHandlers(ctx: AppContext): {
   return {
     // V2 delta sync: GET|POST /api/2/subscriptions/:username/:deviceid
     subscriptionsV2: {
+      OPTIONS: options(["GET", "POST", "OPTIONS"]),
+      PUT: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
+
       async GET(req) {
         const username = req.params.username;
         const { value: deviceid } = parseParam(req.params.deviceid);
@@ -139,16 +152,14 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           }
 
           const timestamp = Math.floor(Date.now() / 1000);
-          return json({ add, remove, timestamp, update_urls: [] });
-
-          return error("Method not allowed", 405);
+          return ok({ add, remove, timestamp, update_urls: [] });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof ZodError) {
-            return zodError(e);
+          if (e instanceof z4.ZodError) {
+            return badRequest(e);
           }
           ctx.logger.error({ err: e }, "V2 subscriptions handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
 
@@ -166,7 +177,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           const parseResult = SubscriptionChangeBody.safeParse(rawBody);
 
           if (!parseResult.success) {
-            return zodError(parseResult.error);
+            return badRequest(parseResult.error);
           }
 
           const { add: addList, remove: removeList } = parseResult.data;
@@ -174,7 +185,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           // Check for same URL in both lists
           for (const u of addList) {
             if (removeList.includes(u)) {
-              return error("URL in both add and remove", 400);
+              return badRequest("URL in both add and remove");
             }
           }
 
@@ -246,20 +257,25 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             }
           });
 
-          return json({ timestamp, update_urls: updateUrls });
+          return ok({ timestamp, update_urls: updateUrls });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof ZodError) {
-            return zodError(e);
+          if (e instanceof z4.ZodError) {
+            return badRequest(e);
           }
           ctx.logger.error({ err: e }, "V2 subscriptions handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },
 
     // V2.11 all subscriptions: GET /api/2/subscriptions/:username
     subscriptionsAll: {
+      OPTIONS: options(["GET", "OPTIONS"]),
+      PUT: methodNotAllowed(),
+      POST: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
+
       async GET(req) {
         try {
           const { value: username } = parseParam(req.params.username);
@@ -270,17 +286,22 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             user.id,
           );
 
-          return json(subs.map((s) => s.url));
+          return ok(subs.map((s) => s.url));
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "All subscriptions handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },
 
     // Simple API user-level: GET /subscriptions/:username (returns .json or .opml)
     subscriptionsUserLevel: {
+      OPTIONS: options(["GET", "OPTIONS"]),
+      PUT: methodNotAllowed(),
+      POST: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
+
       async GET(req) {
         try {
           const { value: username, ext } = parseParam(req.params.username);
@@ -296,17 +317,21 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             user.id,
           );
 
-          return json(subs.map((s) => s.url));
+          return ok(subs.map((s) => s.url));
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "User-level subscriptions handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },
 
     // Simple API device-level: GET|PUT /subscriptions/:username/:deviceid
     subscriptionsDeviceLevel: {
+      OPTIONS: options(["GET", "PUT", "OPTIONS"]),
+      POST: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
+
       async GET(req) {
         const rawUsername = req.params.username;
         const rawDeviceid = req.params.deviceid;
@@ -323,7 +348,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             deviceid,
           );
           if (!device) {
-            return error("Device not found", 404);
+            return notFound("Device not found");
           }
 
           if (ext === "txt") {
@@ -331,7 +356,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
               "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
               user.id,
             );
-            return text(subs.map((s) => s.url).join("\n"));
+            return ok(subs.map((s) => s.url).join("\n"));
           }
 
           if (ext === "opml") {
@@ -343,11 +368,11 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             "SELECT url FROM subscriptions WHERE user = ? AND deleted = 0",
             user.id,
           );
-          return json(subs.map((s) => s.url));
+          return ok(subs.map((s) => s.url));
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "Device-level GET handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
 
@@ -376,7 +401,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
             const parseResult = SubscriptionPutBody.safeParse(rawBody);
 
             if (!parseResult.success) {
-              return zodError(parseResult.error);
+              return badRequest(parseResult.error);
             }
 
             for (const item of parseResult.data) {
@@ -394,17 +419,22 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           return empty(200);
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof ZodError) {
-            return zodError(e);
+          if (e instanceof z4.ZodError) {
+            return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Device-level PUT handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },
 
     // Legacy OPML export handler (routes still point here)
     opml: {
+      OPTIONS: options(["GET", "OPTIONS"]),
+      PUT: methodNotAllowed(),
+      POST: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
+
       async GET(req) {
         try {
           const rawUsername = req.params.username;
@@ -421,7 +451,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
               deviceid,
             );
             if (!device) {
-              return error("Device not found", 404);
+              return notFound("Device not found");
             }
           }
 
@@ -429,7 +459,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
         } catch (e) {
           if (e instanceof Response) return e;
           ctx.logger.error({ err: e }, "OPML handler error");
-          return error("Server error", 500);
+          return serverError("Server error");
         }
       },
     },

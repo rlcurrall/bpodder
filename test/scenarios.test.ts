@@ -1,6 +1,5 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 
-import { Client } from "./helpers/client";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
 
