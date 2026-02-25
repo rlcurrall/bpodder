@@ -35,5 +35,5 @@ interface SessionStorage {
   create(userId: number): Promise<string>;
   get(sessionId: string): Promise<{ userId: number } | null>;
   delete(sessionId: string): Promise<void>;
-  flush(): void;
+  close(): void;
 }

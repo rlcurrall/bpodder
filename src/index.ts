@@ -15,7 +15,7 @@ import { createLoggingMiddleware } from "./middleware/logging-middleware";
 
 export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const db = createDB(cfg.dbFile);
-  const sessions = new SessionStore(db);
+  const sessions = new SessionStore(`${cfg.dataRoot}/sessions.sqlite`);
   const logger = createLogger(cfg);
 
   const ctx: AppContext = {
@@ -74,7 +74,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   // Graceful shutdown
   const shutdown = () => {
     logger.info("Shutting down gracefully...");
-    sessions.flush();
+    sessions.close();
     try {
       db.run("PRAGMA wal_checkpoint(TRUNCATE)");
     } catch {
