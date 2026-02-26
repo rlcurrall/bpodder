@@ -9,26 +9,25 @@ export interface User {
   password: string;
 }
 
-interface SessionEntry {
-  userId: number;
-  expiresAt: number;
-}
-
-interface SessionPreparedStatements {
-  insert: Statement;
-  selectById: Statement<{ user_id: number; expires_at: number } | null>;
-  deleteById: Statement;
-  deleteExpired: Statement;
-  selectUnexpired: Statement<{ id: string; user_id: number; expires_at: number }>;
-}
-
 export class SessionStore implements SessionStorage {
-  private db: Database;
-  private cache: LRUCache<string, SessionEntry>;
-  private statements: SessionPreparedStatements;
+  private readonly cleanupInterval = 100;
   private maxCacheSize: number;
   private requestCount = 0;
-  private readonly cleanupInterval = 100;
+  private db: Database;
+  private cache: LRUCache<
+    string,
+    {
+      userId: number;
+      expiresAt: number;
+    }
+  >;
+  private statements: {
+    insert: Statement;
+    selectById: Statement<{ user_id: number; expires_at: number } | null>;
+    deleteById: Statement;
+    deleteExpired: Statement;
+    selectUnexpired: Statement<{ id: string; user_id: number; expires_at: number }>;
+  };
 
   constructor(dbPath: string, maxCacheSize = 1000) {
     // Open raw bun:sqlite Database
@@ -156,9 +155,20 @@ export class SessionStore implements SessionStorage {
   }
 }
 
-export interface AuthCredentials {
-  username: string;
-  password: string;
+export function createSessionCookie(sessionId: string, isSecure: boolean): string {
+  let cookie = `sessionid=${sessionId}; HttpOnly; SameSite=Strict; Path=/`;
+  if (isSecure) {
+    cookie += "; Secure";
+  }
+  return cookie;
+}
+
+export function clearSessionCookie(isSecure: boolean): string {
+  let cookie = "sessionid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0";
+  if (isSecure) {
+    cookie += "; Secure";
+  }
+  return cookie;
 }
 
 export async function requireAuth(
@@ -168,12 +178,12 @@ export async function requireAuth(
   requestedUsername?: string,
 ): Promise<User> {
   // Try session first — avoids bcrypt on every request
-  const match = req.headers
+  const sessionId = req.headers
     .get("Cookie")
     ?.match(/sessionid=([^;]+)/)
     ?.at(1);
-  if (match) {
-    const session = await sessions.get(match);
+  if (sessionId) {
+    const session = await sessions.get(sessionId);
     if (session) {
       const user = db.first<User>(
         "SELECT id, name, password FROM users WHERE id = ?",
@@ -204,7 +214,7 @@ export async function requireAuth(
   throw unauthorized("Authentication required");
 }
 
-function parseBasicAuth(header: string | null): AuthCredentials | null {
+function parseBasicAuth(header: string | null): { username: string; password: string } | null {
   if (!header || !header.startsWith("Basic ")) {
     return null;
   }
@@ -229,20 +239,4 @@ function checkAccess(user: User, requestedUsername?: string): User {
     throw forbidden("Access denied");
   }
   return user;
-}
-
-export function createSessionCookie(sessionId: string, isSecure: boolean): string {
-  let cookie = `sessionid=${sessionId}; HttpOnly; SameSite=Strict; Path=/`;
-  if (isSecure) {
-    cookie += "; Secure";
-  }
-  return cookie;
-}
-
-export function clearSessionCookie(isSecure: boolean): string {
-  let cookie = "sessionid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0";
-  if (isSecure) {
-    cookie += "; Secure";
-  }
-  return cookie;
 }
