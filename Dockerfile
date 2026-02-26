@@ -10,12 +10,10 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then ARCH=x64; else ARCH=$TARGETARCH; fi && 
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
-RUN useradd -r -s /bin/false bpodder
 COPY --from=build /app/dist/bpodder /usr/local/bin/bpodder
-RUN mkdir -p /data && chown bpodder:bpodder /data
+RUN mkdir -p /data
 VOLUME /data
 ENV DATA_ROOT=/data
-USER bpodder
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
