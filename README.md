@@ -79,7 +79,6 @@ All configuration is done through environment variables.
 | `ENABLE_REGISTRATION` | `false`                   | Allow new user registration                           |
 | `TITLE`               | `bpodder`                 | Server title                                          |
 | `BASE_URL`            | _(empty)_                 | Public base URL (e.g. `https://podcasts.example.com`) |
-| `DISABLE_UI`          | `false`                   | Serve only the API, no web UI                         |
 | `MAX_BODY_SIZE`       | `5242880`                 | Max request body size in bytes (5MB)                  |
 | `LOG_LEVEL`           | `info`                    | Log level: `debug`, `info`, `warn`, `error`, `silent` |
 | `LOG_FORMAT`          | auto                      | `json` in production, `pretty` in development         |

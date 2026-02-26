@@ -14,7 +14,6 @@ const envSchema = z.object({
     .string()
     .nullish()
     .transform((v) => v ?? null),
-  DISABLE_UI: z.coerce.boolean().default(false),
   MAX_BODY_SIZE: z.coerce.number().default(5_242_880),
   CAPTCHA_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
@@ -55,7 +54,6 @@ export const config: Config = {
   enableRegistration: rawEnv.ENABLE_REGISTRATION,
   title: rawEnv.TITLE,
   karadavUrl: rawEnv.KARADAV_URL,
-  disableUi: rawEnv.DISABLE_UI,
   maxBodySize: rawEnv.MAX_BODY_SIZE,
   captchaSecret: rawEnv.CAPTCHA_SECRET ?? loadOrGenerateCaptchaSecret(dataRoot),
   logLevel: rawEnv.LOG_LEVEL,

@@ -23,8 +23,6 @@ interface Config {
   baseUrl: string;
   enableRegistration: boolean;
   title: string;
-  karadavUrl: string | null;
-  disableUi: boolean;
   maxBodySize: number;
   captchaSecret: string;
   logLevel: "debug" | "info" | "warn" | "error" | "silent";
