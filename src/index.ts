@@ -65,7 +65,8 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       "/health": loggingMiddleware(auth.health),
 
       // UI Config
-      "/api/ui/config": loggingMiddleware(auth.uiConfig),
+      "/api/b-ext/config": loggingMiddleware(auth.uiConfig),
+      "/api/b-ext/login": loggingMiddleware(auth.uiLogin),
       "/": homepage,
       "/login": homepage,
       "/register": homepage,

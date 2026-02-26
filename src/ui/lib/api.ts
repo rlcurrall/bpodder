@@ -1,9 +1,5 @@
 const API_BASE = "";
 
-function getAuthHeader(username: string, password: string): string {
-  return "Basic " + btoa(`${username}:${password}`);
-}
-
 function handleUnauthorized() {
   localStorage.removeItem("username");
   window.location.hash = "#/login";
@@ -45,16 +41,17 @@ export interface EpisodeAction {
 }
 
 export async function getUiConfig(): Promise<UiConfig> {
-  const res = await fetch(`${API_BASE}/api/ui/config`);
+  const res = await fetch(`${API_BASE}/api/b-ext/config`);
   return res.json();
 }
 
 export async function login(username: string, password: string): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/api/2/auth/${encodeURIComponent(username)}/login.json`, {
+  const res = await fetch(`${API_BASE}/api/b-ext/login`, {
     method: "POST",
     headers: {
-      Authorization: getAuthHeader(username, password),
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({ username, password }),
     credentials: "include",
   });
   return res.ok;

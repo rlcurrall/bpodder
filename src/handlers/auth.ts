@@ -10,7 +10,6 @@ import {
   notFound,
   ok,
   options,
-  unauthorized,
 } from "../lib/response";
 import { RegisterBody } from "../lib/schemas";
 
@@ -18,7 +17,8 @@ export function createAuthHandlers(ctx: AppContext): {
   auth: RouteDefinition<"/api/2/auth/:username/:action">;
   register: RouteDefinition<"/register">;
   health: RouteDefinition<"/health">;
-  uiConfig: RouteDefinition<"/api/ui/config">;
+  uiConfig: RouteDefinition<"/api/b-ext/config">;
+  uiLogin: RouteDefinition<"/api/b-ext/login">;
 } {
   return {
     // /api/2/auth/:username/:action → action = "login.json" | "logout.json"
@@ -68,21 +68,15 @@ export function createAuthHandlers(ctx: AppContext): {
             }
           }
 
-          try {
-            const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-            const sessionId = await ctx.sessions.create(user.id);
-            const headers = new Headers();
-            headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
-            headers.set("Content-Type", "application/json");
-            headers.set("Access-Control-Allow-Origin", "*");
+          const sessionId = await ctx.sessions.create(user.id);
+          const headers = new Headers();
+          headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
+          headers.set("Content-Type", "application/json");
+          headers.set("Access-Control-Allow-Origin", "*");
 
-            return new Response(JSON.stringify({}), { status: 200, headers });
-          } catch (e) {
-            if (e instanceof Response) return e;
-            ctx.logger.error({ err: e }, "Login handler error");
-            return unauthorized("Authentication failed");
-          }
+          return new Response(JSON.stringify({}), { status: 200, headers });
         }
 
         if (action === "logout") {
@@ -174,6 +168,68 @@ export function createAuthHandlers(ctx: AppContext): {
         title: ctx.config.title,
         enableRegistration: ctx.config.enableRegistration,
       });
+    },
+
+    uiLogin: {
+      OPTIONS: options(["POST", "OPTIONS"]),
+      GET: methodNotAllowed(),
+      PUT: methodNotAllowed(),
+      DELETE: methodNotAllowed(),
+      async POST(req) {
+        try {
+          const body = await req.json();
+          const { username, password } = body;
+
+          if (!username || !password) {
+            return badRequest("Username and password required");
+          }
+
+          const user = ctx.db.first<{ id: number; password: string }>(
+            "SELECT id, password FROM users WHERE name = ?",
+            username,
+          );
+
+          if (!user) {
+            return new Response(
+              JSON.stringify({ code: 401, message: "Invalid username or password" }),
+              {
+                status: 401,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              },
+            );
+          }
+
+          const verified = await Bun.password.verify(password, user.password);
+          if (!verified) {
+            return new Response(
+              JSON.stringify({ code: 401, message: "Invalid username or password" }),
+              {
+                status: 401,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                },
+              },
+            );
+          }
+
+          // Create session
+          const isSecure = ctx.config.baseUrl.startsWith("https");
+          const sessionId = await ctx.sessions.create(user.id);
+          const headers = new Headers();
+          headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
+          headers.set("Content-Type", "application/json");
+          headers.set("Access-Control-Allow-Origin", "*");
+
+          return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+        } catch (e) {
+          ctx.logger.error({ err: e }, "UI login handler error");
+          return badRequest("Invalid request body");
+        }
+      },
     },
   };
 }
