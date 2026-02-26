@@ -15,3 +15,8 @@ type RouteDefinition<
   WebSocketData = undefined,
   Req extends Bun.BunRequest<T> = Bun.BunRequest<T>,
 > = Response | RouteHandler<T, WebSocketData, Req> | ObjectRouteDefinition<T, WebSocketData, Req>;
+
+declare module "*.html" {
+  const content: any;
+  export default content;
+}

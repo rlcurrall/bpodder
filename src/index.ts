@@ -12,6 +12,7 @@ import { SessionStore } from "./lib/auth";
 import { createLogger } from "./lib/logger";
 import { createDefaultHandler } from "./lib/routing";
 import { createLoggingMiddleware } from "./middleware/logging-middleware";
+import homepage from "./ui/index.html";
 
 export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const db = createDB(cfg.dbFile);
@@ -37,7 +38,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const server = serve({
     port: cfg.port,
     hostname: cfg.host,
-
+    development: process.env.NODE_ENV !== "production",
     routes: {
       // GPodder API v2
       "/api/2/auth/:username/:action": loggingMiddleware(auth.auth),
@@ -51,17 +52,24 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       // V2.11 all-devices subscription list (no deviceid)
       "/api/2/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsAll),
 
-      // Simple API — single handler
+      // Simple API - single handler
       "/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsUserLevel),
       "/subscriptions/:username/:deviceid": loggingMiddleware(
         subscriptions.subscriptionsDeviceLevel,
       ),
 
+      // Registration (bpodder-specific extension)
+      "/api/2/register": loggingMiddleware(auth.register),
+
       // Health
       "/health": loggingMiddleware(auth.health),
 
-      // Registration
-      "/register": loggingMiddleware(auth.register),
+      // UI Config
+      "/api/ui/config": loggingMiddleware(auth.uiConfig),
+      "/": homepage,
+      "/login": homepage,
+      "/register": homepage,
+      "/dashboard": homepage,
     },
 
     fetch: defaultHandler,
