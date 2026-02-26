@@ -18,6 +18,7 @@ export function createAuthHandlers(ctx: AppContext): {
   auth: RouteDefinition<"/api/2/auth/:username/:action">;
   register: RouteDefinition<"/register">;
   health: RouteDefinition<"/health">;
+  uiConfig: RouteDefinition<"/api/ui/config">;
 } {
   return {
     // /api/2/auth/:username/:action → action = "login.json" | "logout.json"
@@ -166,6 +167,13 @@ export function createAuthHandlers(ctx: AppContext): {
         ctx.logger.error({ err }, "Health check error");
         return error("Database unavailable", 503);
       }
+    },
+
+    async uiConfig() {
+      return ok({
+        title: ctx.config.title,
+        enableRegistration: ctx.config.enableRegistration,
+      });
     },
   };
 }
