@@ -1,4 +1,4 @@
-import z4 from "zod/v4";
+import { z } from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
@@ -124,10 +124,10 @@ export function createSettingsHandlers(ctx: AppContext): {
 
           const rawBody = await req.json().catch(() => ({}));
 
-          const body = z4
+          const body = z
             .object({
-              set: z4.record(z4.string(), z4.unknown()).optional(),
-              remove: z4.array(z4.string()).optional(),
+              set: z.record(z.string(), z.unknown()).optional(),
+              remove: z.array(z.string()).optional(),
             })
             .safeParse(rawBody);
 

@@ -1,4 +1,4 @@
-import z4 from "zod/v4";
+import { z } from "zod/v4";
 
 // All response helpers include CORS header per GPodder API spec
 export const CORS = { "Access-Control-Allow-Origin": "*" };
@@ -14,8 +14,8 @@ export function empty(status = 200): Response {
   return new Response("", { status, headers: CORS });
 }
 
-export function error(message: string | z4.ZodError, status: number = 500): Response {
-  if (message instanceof z4.ZodError) {
+export function error(message: string | z.ZodError, status: number = 500): Response {
+  if (message instanceof z.ZodError) {
     const firstIssue = message.issues.at(0)?.message ?? "Validation failed";
     return error(firstIssue, 400);
   }
@@ -82,7 +82,7 @@ export function redirect(url: string, status = 302): Response {
   });
 }
 
-export function badRequest(message?: string | z4.ZodError): Response {
+export function badRequest(message?: string | z.ZodError): Response {
   return error(message ?? "Bad request", 400);
 }
 
@@ -106,6 +106,6 @@ export function tooManyRequests(message?: string): Response {
   return error(message ?? "Too many requests", 429);
 }
 
-export function serverError(message?: string | z4.ZodError): Response {
+export function serverError(message?: string | z.ZodError): Response {
   return error(message ?? "Internal server error", 500);
 }

@@ -1,12 +1,12 @@
-import z4 from "zod/v4";
+import { z } from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { options, methodNotAllowed, ok, badRequest, forbidden, serverError } from "../lib/response";
 
-const SyncRequestBody = z4.object({
-  synchronize: z4.array(z4.array(z4.string())).optional(),
-  "stop-synchronize": z4.array(z4.string()).optional(),
+const SyncRequestBody = z.object({
+  synchronize: z.array(z.array(z.string())).optional(),
+  "stop-synchronize": z.array(z.string()).optional(),
 });
 
 type SyncStatus = {

@@ -1,4 +1,4 @@
-import z4 from "zod/v4";
+import { z } from "zod/v4";
 
 import { requireAuth, createSessionCookie, clearSessionCookie } from "../lib/auth";
 import { parseParam } from "../lib/params";
@@ -144,7 +144,7 @@ export function createAuthHandlers(ctx: AppContext): {
 
           return ok({});
         } catch (e) {
-          if (e instanceof z4.ZodError) {
+          if (e instanceof z.ZodError) {
             return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Registration handler error");

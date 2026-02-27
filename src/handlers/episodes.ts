@@ -1,4 +1,4 @@
-import z4 from "zod/v4";
+import { z } from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
@@ -145,7 +145,7 @@ export function createEpisodeHandlers(ctx: AppContext): {
           });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof z4.ZodError) {
+          if (e instanceof z.ZodError) {
             return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Episodes handler error");
@@ -309,7 +309,7 @@ export function createEpisodeHandlers(ctx: AppContext): {
           });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof z4.ZodError) {
+          if (e instanceof z.ZodError) {
             return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Episodes handler error");

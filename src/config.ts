@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),

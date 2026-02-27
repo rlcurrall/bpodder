@@ -1,4 +1,4 @@
-import z4 from "zod/v4";
+import { z } from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseOPML } from "../lib/opml";
@@ -177,7 +177,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           return ok({ add, remove, timestamp, update_urls: [] });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof z4.ZodError) {
+          if (e instanceof z.ZodError) {
             return badRequest(e);
           }
           ctx.logger.error({ err: e }, "V2 subscriptions handler error");
@@ -285,7 +285,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           return ok({ timestamp, update_urls: updateUrls });
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof z4.ZodError) {
+          if (e instanceof z.ZodError) {
             return badRequest(e);
           }
           ctx.logger.error({ err: e }, "V2 subscriptions handler error");
@@ -450,7 +450,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
           return empty(200);
         } catch (e) {
           if (e instanceof Response) return e;
-          if (e instanceof z4.ZodError) {
+          if (e instanceof z.ZodError) {
             return badRequest(e);
           }
           ctx.logger.error({ err: e }, "Device-level PUT handler error");
