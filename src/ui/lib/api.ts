@@ -37,7 +37,7 @@ export interface EpisodeAction {
   podcast: string;
   episode: string;
   action: string;
-  timestamp: number;
+  timestamp: string;
 }
 
 export async function getUiConfig(): Promise<UiConfig> {

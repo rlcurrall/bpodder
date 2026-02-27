@@ -7,8 +7,8 @@ interface EpisodeListProps {
   episodes: EpisodeAction[];
 }
 
-function formatTimestamp(ts: number): string {
-  return new Date(ts * 1000).toLocaleString();
+function formatTimestamp(ts: string): string {
+  return new Date(ts).toLocaleString();
 }
 
 function getActionBadgeClass(action: string): string {
