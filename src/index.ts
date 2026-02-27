@@ -2,12 +2,12 @@ import { serve } from "bun";
 
 import { config } from "./config";
 import { createDB } from "./db";
-import { createAuthHandlers } from "./handlers/auth";
-import { createDeviceHandlers } from "./handlers/devices";
-import { createEpisodeHandlers } from "./handlers/episodes";
-import { createSettingsHandlers } from "./handlers/settings";
-import { createSubscriptionHandlers } from "./handlers/subscriptions";
-import { createSyncHandlers } from "./handlers/sync";
+import createAuthHandlers from "./handlers/auth";
+import createDeviceHandlers from "./handlers/devices";
+import createEpisodeHandlers from "./handlers/episodes";
+import createSettingsHandlers from "./handlers/settings";
+import createSubscriptionHandlers from "./handlers/subscriptions";
+import createSyncHandlers from "./handlers/sync";
 import { SessionStore } from "./lib/auth";
 import { createLogger } from "./lib/logger";
 import { createDefaultHandler } from "./lib/routing";
@@ -40,32 +40,38 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
     development: process.env.NODE_ENV !== "production",
     routes: {
       // GPodder API v2
-      "/api/2/auth/:username/:action": loggingMiddleware(auth.auth),
-      "/api/2/devices/:username": loggingMiddleware(devices.listDevices),
-      "/api/2/devices/:username/:deviceid": loggingMiddleware(devices.upsertDevice),
-      "/api/2/subscriptions/:username/:deviceid": loggingMiddleware(subscriptions.subscriptionsV2),
-      "/api/2/episodes/:username": loggingMiddleware(episodes.episodes),
-      "/api/2/settings/:username/:scope": loggingMiddleware(settings.settings),
-      "/api/2/sync-devices/:username": loggingMiddleware(sync.syncDevices),
+      "/api/2/auth/:username/:action": loggingMiddleware(auth["/api/2/auth/:username/:action"]),
+      "/api/2/devices/:username": loggingMiddleware(devices["/api/2/devices/:username"]),
+      "/api/2/devices/:username/:deviceid": loggingMiddleware(
+        devices["/api/2/devices/:username/:deviceid"],
+      ),
+      "/api/2/subscriptions/:username/:deviceid": loggingMiddleware(
+        subscriptions["/api/2/subscriptions/:username/:deviceid"],
+      ),
+      "/api/2/episodes/:username": loggingMiddleware(episodes["/api/2/episodes/:username"]),
+      "/api/2/settings/:username/:scope": loggingMiddleware(
+        settings["/api/2/settings/:username/:scope"],
+      ),
+      "/api/2/sync-devices/:username": loggingMiddleware(sync["/api/2/sync-devices/:username"]),
 
       // V2.11 all-devices subscription list (no deviceid)
-      "/api/2/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsAll),
-
-      // Simple API - single handler
-      "/subscriptions/:username": loggingMiddleware(subscriptions.subscriptionsUserLevel),
-      "/subscriptions/:username/:deviceid": loggingMiddleware(
-        subscriptions.subscriptionsDeviceLevel,
+      "/api/2/subscriptions/:username": loggingMiddleware(
+        subscriptions["/api/2/subscriptions/:username"],
       ),
 
-      // Registration (bpodder-specific extension)
-      "/api/2/register": loggingMiddleware(auth.register),
+      // Simple API - single handler
+      "/subscriptions/:username": loggingMiddleware(subscriptions["/subscriptions/:username"]),
+      "/subscriptions/:username/:deviceid": loggingMiddleware(
+        subscriptions["/subscriptions/:username/:deviceid"],
+      ),
 
       // Health
-      "/health": loggingMiddleware(auth.health),
+      "/health": loggingMiddleware(auth["/health"]),
 
       // UI Config
-      "/api/b-ext/config": loggingMiddleware(auth.uiConfig),
-      "/api/b-ext/login": loggingMiddleware(auth.uiLogin),
+      "/api/b-ext/config": loggingMiddleware(auth["/api/b-ext/config"]),
+      "/api/b-ext/login": loggingMiddleware(auth["/api/b-ext/login"]),
+      "/api/b-ext/register": loggingMiddleware(auth["/api/b-ext/register"]),
       "/": homepage,
       "/login": homepage,
       "/register": homepage,

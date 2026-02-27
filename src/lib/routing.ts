@@ -1,5 +1,23 @@
 import { options, error } from "./response";
 
+export function createRouteHandlerMap<T extends Record<string, RouteDefinition<string>>>(
+  mapper: (ctx: AppContext) => T,
+): (ctx: AppContext) => RouteMap<{ [K in keyof T]: K & string }> {
+  return (ctx: AppContext) => {
+    const handlerMap = {} as RouteMap<{ [K in keyof T]: K & string }>;
+    const map = mapper(ctx);
+    for (const path in map) {
+      const def = map[path];
+      if (def instanceof Response || typeof def === "function") {
+        handlerMap[path] = { GET: def } as RouteDefinition<typeof path>;
+      } else {
+        handlerMap[path] = def as RouteDefinition<typeof path>;
+      }
+    }
+    return handlerMap;
+  };
+}
+
 export function createDefaultHandler(ctx: AppContext): RouteHandler<string> {
   const { logger, config } = ctx;
   return (req: Request): Response | Promise<Response> => {

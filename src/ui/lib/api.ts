@@ -57,7 +57,7 @@ export async function register(
   password: string,
   passwordConfirm?: string,
 ): Promise<RegisterResult> {
-  const res = await fetch(`${API_BASE}/api/2/register`, {
+  const res = await fetch(`${API_BASE}/api/b-ext/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password, passwordConfirm }),

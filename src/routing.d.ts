@@ -20,3 +20,7 @@ declare module "*.html" {
   const content: any;
   export default content;
 }
+
+type RouteMap<T extends Record<string, string>> = {
+  [K in keyof T]: RouteDefinition<T[K]>;
+};
