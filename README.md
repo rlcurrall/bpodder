@@ -73,7 +73,6 @@ All configuration is done through environment variables.
 | Variable              | Default                   | Description                                           |
 | --------------------- | ------------------------- | ----------------------------------------------------- |
 | `PORT`                | `8080`                    | Server port                                           |
-| `HOST`                | `0.0.0.0`                 | Listen address                                        |
 | `DATA_ROOT`           | `./data`                  | Directory for database and app data                   |
 | `DB_FILE`             | `{DATA_ROOT}/data.sqlite` | SQLite database path                                  |
 | `ENABLE_REGISTRATION` | `false`                   | Allow new user registration                           |
