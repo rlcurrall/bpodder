@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "categories": {},
+  "plugins": ["typescript"],
   "rules": {},
   "settings": {
     "jsx-a11y": {

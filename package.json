@@ -12,8 +12,8 @@
     "update-feeds": "bun run src/index.ts --update-feeds",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint --type-aware --type-check",
+    "lint:fix": "oxlint --type-aware --type-check --fix",
     "prepare": "husky"
   },
   "dependencies": {
@@ -30,12 +30,13 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "oxfmt": "^0.35.0",
-    "oxlint": "^1.50.0"
+    "oxlint": "^1.50.0",
+    "oxlint-tsgolint": "^0.15.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "oxfmt",
-      "oxlint --fix"
+      "oxlint --type-aware --type-check --fix"
     ]
   }
 }
