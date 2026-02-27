@@ -11,7 +11,12 @@ import { SubscriptionList } from "../components/subscription-list";
 import * as api from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-export function DashboardPage() {
+interface DashboardPageProps {
+  path?: string;
+  default?: boolean;
+}
+
+export function DashboardPage(_props: DashboardPageProps) {
   const { username, logout } = useAuth();
   const [devices, setDevices] = useState<Device[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);

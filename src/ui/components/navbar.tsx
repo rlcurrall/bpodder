@@ -61,18 +61,20 @@ export function NavbarSpacer({ class: className, ...props }: HTMLAttributes<HTML
   return <div aria-hidden="true" {...props} class={clsx(className, "-ml-4 flex-1")} />;
 }
 
-export function NavbarItem({
-  current,
-  class: className,
-  children,
-  href,
-  ...props
-}: {
-  current?: boolean;
-  class?: string;
-  children: ComponentChildren;
-  href?: string;
-} & (AnchorHTMLAttributes<HTMLAnchorElement> | ButtonHTMLAttributes<HTMLButtonElement>)) {
+type NavbarItemProps =
+  | (AnchorHTMLAttributes<HTMLAnchorElement> & {
+      current?: boolean;
+      class?: string;
+      children: ComponentChildren;
+    })
+  | (ButtonHTMLAttributes<HTMLButtonElement> & {
+      current?: boolean;
+      class?: string;
+      children: ComponentChildren;
+    });
+
+export function NavbarItem(props: NavbarItemProps) {
+  const { current, class: className, children, ...rest } = props;
   const classes = clsx(
     // Base
     "relative flex min-w-0 items-center gap-3 rounded-lg p-2 text-left text-base/6 font-medium text-zinc-950 sm:text-sm/5",
@@ -98,20 +100,15 @@ export function NavbarItem({
       {current && (
         <span class="absolute inset-x-2 -bottom-2.5 h-0.5 rounded-full bg-zinc-950 dark:bg-white" />
       )}
-      {href ? (
-        <Link
-          href={href}
-          {...(props as AnchorHTMLAttributes<HTMLAnchorElement>)}
-          class={classes}
-          data-current={current ? "true" : undefined}
-        >
+      {"href" in rest ? (
+        <Link class={classes} data-current={current ? "true" : undefined} {...rest}>
           <TouchTarget>{children}</TouchTarget>
         </Link>
       ) : (
         <button
-          {...(props as ButtonHTMLAttributes<HTMLButtonElement>)}
           class={clsx("cursor-pointer", classes)}
           data-current={current ? "true" : undefined}
+          {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)}
         >
           <TouchTarget>{children}</TouchTarget>
         </button>
