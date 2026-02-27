@@ -11,7 +11,6 @@ interface AppDatabase {
   run(sql: string, ...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
   transaction<T>(fn: () => T): T;
   upsert(table: string, row: Record<string, unknown>, conflictCols: string[]): void;
-  queryWithData<T>(sql: string, ...params: unknown[]): T[];
   close(): void;
 }
 

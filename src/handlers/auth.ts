@@ -10,9 +10,15 @@ import {
   notFound,
   ok,
   options,
+  unauthorized,
 } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import { RegisterBody } from "../lib/schemas";
+import {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  SuccessResponse,
+} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/auth/:username/:action": {
@@ -129,11 +135,7 @@ export default createRouteHandlerMap((ctx) => ({
     async POST(req) {
       try {
         const body = await req.json();
-        const { username, password } = body;
-
-        if (!username || !password) {
-          return badRequest("Username and password required");
-        }
+        const { username, password } = LoginRequest.parse(body);
 
         const user = ctx.db.first<{ id: number; password: string }>(
           "SELECT id, password FROM users WHERE name = ?",
@@ -141,30 +143,12 @@ export default createRouteHandlerMap((ctx) => ({
         );
 
         if (!user) {
-          return new Response(
-            JSON.stringify({ code: 401, message: "Invalid username or password" }),
-            {
-              status: 401,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-              },
-            },
-          );
+          return unauthorized("Invalid username or password");
         }
 
         const verified = await Bun.password.verify(password, user.password);
         if (!verified) {
-          return new Response(
-            JSON.stringify({ code: 401, message: "Invalid username or password" }),
-            {
-              status: 401,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-              },
-            },
-          );
+          return unauthorized("Invalid username or password");
         }
 
         // Create session
@@ -175,10 +159,12 @@ export default createRouteHandlerMap((ctx) => ({
         headers.set("Content-Type", "application/json");
         headers.set("Access-Control-Allow-Origin", "*");
 
-        return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+        // Validate and return response
+        const response = LoginResponse.parse({ success: true });
+        return new Response(JSON.stringify(response), { status: 200, headers });
       } catch (e) {
         ctx.logger.error({ err: e }, "UI login handler error");
-        return badRequest("Invalid request body");
+        return badRequest(e instanceof z.ZodError ? e : "Invalid request body");
       }
     },
   },
@@ -195,7 +181,7 @@ export default createRouteHandlerMap((ctx) => ({
 
       try {
         const rawBody = await req.json();
-        const parseResult = RegisterBody.safeParse(rawBody);
+        const parseResult = RegisterRequest.safeParse(rawBody);
 
         if (!parseResult.success) {
           return badRequest(parseResult.error);
@@ -214,7 +200,7 @@ export default createRouteHandlerMap((ctx) => ({
         const passwordHash = await Bun.password.hash(password);
         ctx.db.run("INSERT INTO users (name, password) VALUES (?, ?)", username, passwordHash);
 
-        return ok({});
+        return ok(SuccessResponse.parse({}));
       } catch (e) {
         if (e instanceof z.ZodError) {
           return badRequest(e);

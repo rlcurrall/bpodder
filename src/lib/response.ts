@@ -1,5 +1,7 @@
 import { z } from "zod/v4";
 
+import { ErrorResponse } from "./schemas/index";
+
 // All response helpers include CORS header per GPodder API spec
 export const CORS = { "Access-Control-Allow-Origin": "*" };
 
@@ -20,7 +22,10 @@ export function error(message: string | z.ZodError, status: number = 500): Respo
     return error(firstIssue, 400);
   }
 
-  return new Response(JSON.stringify({ code: status, message }), {
+  // Validate error response format
+  const body = ErrorResponse.parse({ code: status, message });
+
+  return new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",

@@ -2,7 +2,12 @@ import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { options, methodNotAllowed, ok, forbidden, serverError, badRequest } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import { DeviceBody, DeviceType } from "../lib/schemas";
+import {
+  DeviceUpdateRequest,
+  DeviceListResponse,
+  DeviceResponseType,
+  SuccessResponse,
+} from "../lib/schemas/index";
 
 const validDeviceId = /^[\w.-]+$/;
 
@@ -18,14 +23,16 @@ export default createRouteHandlerMap((ctx) => ({
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username === "current") {
-          return ok(getDevicesWithCount(ctx, user.id));
+          const devices = getDevicesWithCount(ctx, user.id);
+          return ok(DeviceListResponse.parse(devices));
         }
 
         if (username !== user.name) {
           return forbidden("Access denied");
         }
 
-        return ok(getDevicesWithCount(ctx, user.id));
+        const devices = getDevicesWithCount(ctx, user.id);
+        return ok(DeviceListResponse.parse(devices));
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "List devices handler error");
@@ -54,7 +61,7 @@ export default createRouteHandlerMap((ctx) => ({
         }
 
         const rawBody = await req.json().catch(() => ({}));
-        const body = DeviceBody.parse(rawBody);
+        const body = DeviceUpdateRequest.parse(rawBody);
 
         // Check if device exists
         const existing = ctx.db.first<{
@@ -96,7 +103,7 @@ export default createRouteHandlerMap((ctx) => ({
           );
         }
 
-        return ok({});
+        return ok(SuccessResponse.parse({}));
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "Upsert device handler error");
@@ -106,7 +113,7 @@ export default createRouteHandlerMap((ctx) => ({
   },
 }));
 
-function getDevicesWithCount(ctx: AppContext, userId: number): DeviceType[] {
+function getDevicesWithCount(ctx: AppContext, userId: number): DeviceResponseType[] {
   const rows = ctx.db.all<{
     deviceid: string;
     caption: string | null;
@@ -126,7 +133,7 @@ function getDevicesWithCount(ctx: AppContext, userId: number): DeviceType[] {
   );
 
   return rows.map(
-    (row): DeviceType => ({
+    (row): DeviceResponseType => ({
       id: row.deviceid,
       caption: row.caption ?? "",
       type: row.type ?? "",

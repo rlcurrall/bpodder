@@ -1,7 +1,7 @@
 import { route } from "preact-router";
 import { useState } from "preact/hooks";
 
-import { RegisterBody } from "../../lib/schemas";
+import { RegisterRequest } from "../../lib/schemas";
 import { Button } from "../components/button";
 import { Field, Label, ErrorMessage } from "../components/fieldset";
 import { Heading } from "../components/heading";
@@ -32,7 +32,7 @@ export function RegisterPage(_props: RegisterPageProps) {
     const pass = formData.get("password") as string;
     const passConfirm = formData.get("password-confirm") as string;
 
-    const parseResult = RegisterBody.safeParse({
+    const parseResult = RegisterRequest.safeParse({
       username: user,
       password: pass,
       passwordConfirm: passConfirm,

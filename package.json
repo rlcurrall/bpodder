@@ -26,6 +26,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@total-typescript/ts-reset": "^0.6.1",
     "@types/bun": "latest",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",

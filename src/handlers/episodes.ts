@@ -4,7 +4,11 @@ import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { badRequest, options, methodNotAllowed, notFound, ok, serverError } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import { EpisodePostBody } from "../lib/schemas";
+import {
+  EpisodeActionResponseType,
+  EpisodeListResponse,
+  EpisodeUploadRequest,
+} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/episodes/:username": {
@@ -110,7 +114,7 @@ export default createRouteHandlerMap((ctx) => ({
         }>(sql, ...params);
 
         const actions = rows.map((row) => {
-          const action: Record<string, unknown> = {
+          const action: EpisodeActionResponseType = {
             podcast: row.podcast ?? "",
             episode: row.episode,
             action: row.action,
@@ -136,11 +140,12 @@ export default createRouteHandlerMap((ctx) => ({
 
         const timestamp = Math.floor(Date.now() / 1000);
 
-        return ok({
+        const response = EpisodeListResponse.parse({
           timestamp,
           actions,
           update_urls: [],
         });
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         if (e instanceof z.ZodError) {
@@ -150,6 +155,7 @@ export default createRouteHandlerMap((ctx) => ({
         return serverError("Server error");
       }
     },
+
     async POST(req) {
       const rawUsername = req.params.username;
       const { value: username } = parseParam(rawUsername);
@@ -162,7 +168,7 @@ export default createRouteHandlerMap((ctx) => ({
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         const rawBody = await req.json();
-        const parseResult = EpisodePostBody.safeParse(rawBody);
+        const parseResult = EpisodeUploadRequest.safeParse(rawBody);
 
         if (!parseResult.success) {
           return badRequest(parseResult.error);
@@ -175,10 +181,11 @@ export default createRouteHandlerMap((ctx) => ({
         const timestamp = Math.floor(Date.now() / 1000);
 
         if (actions.length === 0) {
-          return ok({
+          const response = EpisodeListResponse.parse({
             timestamp,
             update_urls: [],
           });
+          return ok(response);
         }
 
         const updateUrls: string[][] = [];
@@ -301,10 +308,11 @@ export default createRouteHandlerMap((ctx) => ({
           }
         });
 
-        return ok({
+        const response = EpisodeListResponse.parse({
           timestamp,
           update_urls: updateUrls,
         });
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         if (e instanceof z.ZodError) {

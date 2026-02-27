@@ -1,14 +1,8 @@
-import { z } from "zod/v4";
-
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { options, methodNotAllowed, ok, badRequest, forbidden, serverError } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-
-const SyncRequestBody = z.object({
-  synchronize: z.array(z.array(z.string())).optional(),
-  "stop-synchronize": z.array(z.string()).optional(),
-});
+import { SyncRequest, SyncStatusResponse } from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/sync-devices/:username": {
@@ -28,7 +22,7 @@ export default createRouteHandlerMap((ctx) => ({
         }
 
         const status = getSyncStatus(ctx, user.id);
-        return ok(status);
+        return ok(SyncStatusResponse.parse(status));
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "Get sync devices handler error");
@@ -48,7 +42,7 @@ export default createRouteHandlerMap((ctx) => ({
         }
 
         const rawBody = await req.json().catch(() => ({}));
-        const parseResult = SyncRequestBody.safeParse(rawBody);
+        const parseResult = SyncRequest.safeParse(rawBody);
 
         if (!parseResult.success) {
           return badRequest(parseResult.error);
@@ -139,7 +133,7 @@ export default createRouteHandlerMap((ctx) => ({
         });
 
         const status = getSyncStatus(ctx, user.id);
-        return ok(status);
+        return ok(SyncStatusResponse.parse(status));
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "Post sync devices handler error");

@@ -65,23 +65,6 @@ export class DB implements AppDatabase {
     this.run(sql, ...Object.values(row));
   }
 
-  queryWithData<T>(sql: string, ...params: unknown[]): T[] {
-    const rows = this.all<any>(sql, ...params);
-    return rows.map((row) => {
-      if (row.data) {
-        try {
-          const data = JSON.parse(row.data);
-          // Merge data into row, but row properties take precedence
-          return { ...data, ...row };
-        } catch {
-          // Invalid JSON, return as-is
-          return row;
-        }
-      }
-      return row;
-    });
-  }
-
   close(): void {
     this.db.close();
   }

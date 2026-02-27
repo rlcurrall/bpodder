@@ -14,7 +14,13 @@ import {
   notFound,
 } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import { SubscriptionChangeBody, SubscriptionPutBody, isHttpUrl } from "../lib/schemas";
+import {
+  SubscriptionSyncRequest,
+  SubscriptionReplaceRequest,
+  SubscriptionDeltaResponse,
+  SubscriptionListResponse,
+  isHttpUrl,
+} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   // V2 delta sync: GET|POST /api/2/subscriptions/:username/:deviceid
@@ -58,7 +64,13 @@ export default createRouteHandlerMap((ctx) => ({
         }
 
         const timestamp = Math.floor(Date.now() / 1000);
-        return ok({ add, remove, timestamp, update_urls: [] });
+        const response = SubscriptionDeltaResponse.parse({
+          add,
+          remove,
+          timestamp,
+          update_urls: [],
+        });
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         if (e instanceof z.ZodError) {
@@ -80,7 +92,7 @@ export default createRouteHandlerMap((ctx) => ({
         const devicePk = ensureDevice(ctx, { userId: user.id, deviceId: deviceid });
 
         const rawBody = await req.json();
-        const parseResult = SubscriptionChangeBody.safeParse(rawBody);
+        const parseResult = SubscriptionSyncRequest.safeParse(rawBody);
 
         if (!parseResult.success) {
           return badRequest(parseResult.error);
@@ -166,7 +178,8 @@ export default createRouteHandlerMap((ctx) => ({
           }
         });
 
-        return ok({ timestamp, update_urls: updateUrls });
+        const response = SubscriptionDeltaResponse.parse({ timestamp, update_urls: updateUrls });
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         if (e instanceof z.ZodError) {
@@ -195,7 +208,8 @@ export default createRouteHandlerMap((ctx) => ({
           user.id,
         );
 
-        return ok(subs.map((s) => s.url));
+        const response = SubscriptionListResponse.parse(subs.map((s) => s.url));
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "All subscriptions handler error");
@@ -220,13 +234,13 @@ export default createRouteHandlerMap((ctx) => ({
           return opml(buildOPML(ctx, { userId: user.id }));
         }
 
-        // Default to JSON array (distinct across all devices)
         const subs = ctx.db.all<{ url: string }>(
           "SELECT DISTINCT url FROM subscriptions WHERE user = ? AND deleted = 0",
           user.id,
         );
 
-        return ok(subs.map((s) => s.url));
+        const response = SubscriptionListResponse.parse(subs.map((s) => s.url));
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "User-level subscriptions handler error");
@@ -279,7 +293,8 @@ export default createRouteHandlerMap((ctx) => ({
           user.id,
           device.id,
         );
-        return ok(subs.map((s) => s.url));
+        const response = SubscriptionListResponse.parse(subs.map((s) => s.url));
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "Device-level GET handler error");
@@ -313,7 +328,7 @@ export default createRouteHandlerMap((ctx) => ({
         } else {
           // JSON (default)
           const rawBody = await req.json();
-          const parseResult = SubscriptionPutBody.safeParse(rawBody);
+          const parseResult = SubscriptionReplaceRequest.safeParse(rawBody);
 
           if (!parseResult.success) {
             return badRequest(parseResult.error);
@@ -489,8 +504,8 @@ function buildOPML(
     let title = sub.url;
     try {
       if (sub.data) {
-        const data = JSON.parse(sub.data);
-        if (data.title) title = data.title;
+        const data = z.record(z.string(), z.any()).safeParse(JSON.parse(sub.data));
+        if (data.success && data.data.title) title = data.data.title;
       }
     } catch {
       // ignore

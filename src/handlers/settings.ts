@@ -1,12 +1,13 @@
-import { z } from "zod/v4";
-
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { options, methodNotAllowed, badRequest, forbidden, serverError, ok } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-
-const validScopes = ["account", "device", "podcast", "episode"] as const;
-type Scope = (typeof validScopes)[number];
+import {
+  SettingsUpdateRequest,
+  SettingsResponse,
+  validScopes,
+  type Scope,
+} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/settings/:username/:scope": {
@@ -36,7 +37,7 @@ export default createRouteHandlerMap((ctx) => ({
         if (scopeError) return scopeError;
 
         const settings = getSettings(ctx, { userId: user.id, scope, scopeId });
-        return ok(settings);
+        return ok(SettingsResponse.parse(settings));
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "Get settings handler error");
@@ -67,12 +68,7 @@ export default createRouteHandlerMap((ctx) => ({
 
         const rawBody = await req.json().catch(() => ({}));
 
-        const body = z
-          .object({
-            set: z.record(z.string(), z.unknown()).optional(),
-            remove: z.array(z.string()).optional(),
-          })
-          .safeParse(rawBody);
+        const body = SettingsUpdateRequest.safeParse(rawBody);
 
         if (!body.success) {
           return badRequest("Invalid request body");
@@ -118,7 +114,7 @@ export default createRouteHandlerMap((ctx) => ({
         });
 
         const settings = getSettings(ctx, { userId: user.id, scope, scopeId });
-        return ok(settings);
+        return ok(SettingsResponse.parse(settings));
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "Post settings handler error");
@@ -160,6 +156,9 @@ function buildScopeId(scope: Scope, query: URLSearchParams): { scopeId: string; 
       }
       return { scopeId: episode };
     }
+    default:
+      // TypeScript should never reach here due to type narrowing, but we handle it defensively
+      return { scopeId: "", error: badRequest("Invalid scope") };
   }
 }
 function getSettings(
