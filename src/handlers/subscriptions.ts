@@ -82,7 +82,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
         user: userId,
         deviceid: deviceId,
         caption: null,
-        type: "other",
+        type: "other", // per GPodder API spec, we don't have device type info so default to "other". TODO: figure out how to source this.
         data: null,
       },
       ["user", "deviceid"],
