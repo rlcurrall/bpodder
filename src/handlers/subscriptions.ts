@@ -18,6 +18,7 @@ import {
   SubscriptionSyncRequest,
   SubscriptionReplaceRequest,
   SubscriptionDeltaResponse,
+  SubscriptionUploadResponse,
   SubscriptionListResponse,
   isHttpUrl,
 } from "../lib/schemas/index";
@@ -178,7 +179,7 @@ export default createRouteHandlerMap((ctx) => ({
           }
         });
 
-        const response = SubscriptionDeltaResponse.parse({ timestamp, update_urls: updateUrls });
+        const response = SubscriptionUploadResponse.parse({ timestamp, update_urls: updateUrls });
         return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;

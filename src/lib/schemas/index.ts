@@ -28,6 +28,7 @@ export {
   SubscriptionSyncRequest,
   SubscriptionReplaceRequest,
   SubscriptionDeltaResponse,
+  SubscriptionUploadResponse,
   SubscriptionListResponse,
 } from "./subscriptions";
 export type { SubscriptionSyncRequestType, SubscriptionReplaceRequestType } from "./subscriptions";
@@ -37,11 +38,13 @@ export {
   EpisodeListRequest,
   EpisodeActionResponse,
   EpisodeListResponse,
+  EpisodeUploadResponse,
   EpisodeUploadRequest,
 } from "./episodes";
 export type {
   EpisodeActionResponseType,
   EpisodeListResponseType,
+  EpisodeUploadResponseType,
   EpisodeUploadRequestType,
 } from "./episodes";
 

@@ -60,6 +60,11 @@ export const EpisodeActionResponse = z
 export const EpisodeListResponse = z.object({
   timestamp: z.number(),
   actions: z.array(EpisodeActionResponse),
+  update_urls: z.array(z.array(z.string())).default([]),
+});
+
+export const EpisodeUploadResponse = z.object({
+  timestamp: z.number(),
   update_urls: z.array(z.array(z.string())),
 });
 
@@ -72,4 +77,5 @@ export const EpisodeUploadRequest = z.union([
 
 export type EpisodeActionResponseType = z.infer<typeof EpisodeActionResponse>;
 export type EpisodeListResponseType = z.infer<typeof EpisodeListResponse>;
+export type EpisodeUploadResponseType = z.infer<typeof EpisodeUploadResponse>;
 export type EpisodeUploadRequestType = z.infer<typeof EpisodeUploadRequest>;

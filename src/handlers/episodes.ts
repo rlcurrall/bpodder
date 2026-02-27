@@ -7,6 +7,7 @@ import { createRouteHandlerMap } from "../lib/routing";
 import {
   EpisodeActionResponseType,
   EpisodeListResponse,
+  EpisodeUploadResponse,
   EpisodeUploadRequest,
 } from "../lib/schemas/index";
 
@@ -143,7 +144,6 @@ export default createRouteHandlerMap((ctx) => ({
         const response = EpisodeListResponse.parse({
           timestamp,
           actions,
-          update_urls: [],
         });
         return ok(response);
       } catch (e) {
@@ -181,7 +181,7 @@ export default createRouteHandlerMap((ctx) => ({
         const timestamp = Math.floor(Date.now() / 1000);
 
         if (actions.length === 0) {
-          const response = EpisodeListResponse.parse({
+          const response = EpisodeUploadResponse.parse({
             timestamp,
             update_urls: [],
           });
@@ -308,7 +308,7 @@ export default createRouteHandlerMap((ctx) => ({
           }
         });
 
-        const response = EpisodeListResponse.parse({
+        const response = EpisodeUploadResponse.parse({
           timestamp,
           update_urls: updateUrls,
         });

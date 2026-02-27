@@ -27,6 +27,11 @@ export const SubscriptionDeltaResponse = z.object({
   update_urls: z.array(z.array(z.string())),
 });
 
+export const SubscriptionUploadResponse = z.object({
+  timestamp: z.number(),
+  update_urls: z.array(z.array(z.string())),
+});
+
 export const SubscriptionListResponse = z.array(z.string());
 
 export type SubscriptionSyncRequestType = z.infer<typeof SubscriptionSyncRequest>;
