@@ -31,7 +31,7 @@ export const RegisterBody = z
 export const DeviceBody = z
   .object({
     caption: z.string().optional(),
-    type: z.string().optional(),
+    type: z.enum(["desktop", "laptop", "mobile", "server", "other"]).optional(),
   })
   .catch({ caption: undefined, type: undefined });
 
