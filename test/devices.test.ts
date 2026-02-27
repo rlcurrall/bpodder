@@ -132,7 +132,7 @@ describe("devices", () => {
 
   test("12. GET devices for bob as alice", async () => {
     // Create bob
-    await new Client(serverUrl).post("/register", {
+    await new Client(serverUrl).post("/api/b-ext/register", {
       username: "bob2",
       password: "bobpassword",
       passwordConfirm: "bobpassword",

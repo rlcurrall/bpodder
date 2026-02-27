@@ -540,7 +540,7 @@ describe("subscriptions", () => {
         const bobUsername = `bob_opml_${Date.now()}`;
         const password = "password123";
 
-        await client.post("/register", {
+        await client.post("/api/b-ext/register", {
           username: bobUsername,
           password,
           passwordConfirm: password,
@@ -602,7 +602,7 @@ describe("subscriptions", () => {
 
     test("30. GET access for bob's subscriptions as alice (403)", async () => {
       // Create bob
-      await new Client(serverUrl).post("/register", {
+      await new Client(serverUrl).post("/api/b-ext/register", {
         username: "bob_subs",
         password: "password",
         passwordConfirm: "password",

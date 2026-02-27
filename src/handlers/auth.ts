@@ -55,7 +55,7 @@ export default createRouteHandlerMap((ctx) => ({
                 headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
                 headers.set("Content-Type", "application/json");
                 headers.set("Access-Control-Allow-Origin", "*");
-                return new Response(JSON.stringify({}), {
+                return new Response(JSON.stringify(SuccessResponse.parse({})), {
                   status: 200,
                   headers,
                 });
@@ -67,15 +67,22 @@ export default createRouteHandlerMap((ctx) => ({
           }
         }
 
-        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+        try {
+          const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        const sessionId = await ctx.sessions.create(user.id);
-        const headers = new Headers();
-        headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
-        headers.set("Content-Type", "application/json");
-        headers.set("Access-Control-Allow-Origin", "*");
+          const sessionId = await ctx.sessions.create(user.id);
+          const headers = new Headers();
+          headers.set("Set-Cookie", createSessionCookie(sessionId, isSecure));
+          headers.set("Content-Type", "application/json");
+          headers.set("Access-Control-Allow-Origin", "*");
 
-        return new Response(JSON.stringify({}), { status: 200, headers });
+          return new Response(JSON.stringify(SuccessResponse.parse({})), { status: 200, headers });
+        } catch (e) {
+          if (e instanceof Response) {
+            return e;
+          }
+          throw e;
+        }
       }
 
       if (action === "logout") {
@@ -103,7 +110,7 @@ export default createRouteHandlerMap((ctx) => ({
         headers.set("Content-Type", "application/json");
         headers.set("Access-Control-Allow-Origin", "*");
 
-        return new Response(JSON.stringify({}), { status: 200, headers });
+        return new Response(JSON.stringify(SuccessResponse.parse({})), { status: 200, headers });
       }
 
       return notFound("Unknown action");

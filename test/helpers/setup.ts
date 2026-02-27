@@ -18,7 +18,7 @@ export async function createTestUser(
   const client = new Client(serverUrl);
 
   // Register user
-  const registerRes = await client.post("/register", {
+  const registerRes = await client.post("/api/b-ext/register", {
     username,
     password,
     passwordConfirm: password,

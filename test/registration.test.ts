@@ -13,7 +13,7 @@ describe("registration", () => {
   test("1. POST /register with valid username + password", async () => {
     const client = new Client(serverUrl);
     const username = `reguser_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username,
       password: "password123",
       passwordConfirm: "password123",
@@ -32,7 +32,7 @@ describe("registration", () => {
 
   test("2. Register with username 'current' (reserved)", async () => {
     const client = new Client(serverUrl);
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username: "current",
       password: "password123",
       passwordConfirm: "password123",
@@ -44,7 +44,7 @@ describe("registration", () => {
 
   test("3. Register with username starting with ! (non-word char)", async () => {
     const client = new Client(serverUrl);
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username: "!invalid",
       password: "password123",
       passwordConfirm: "password123",
@@ -56,7 +56,7 @@ describe("registration", () => {
 
   test("4. Register with username containing /", async () => {
     const client = new Client(serverUrl);
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username: "user/name",
       password: "password123",
       passwordConfirm: "password123",
@@ -68,7 +68,7 @@ describe("registration", () => {
 
   test("5. Register with password < 8 chars", async () => {
     const client = new Client(serverUrl);
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username: "shortpass",
       password: "1234567",
       passwordConfirm: "1234567",
@@ -80,7 +80,7 @@ describe("registration", () => {
 
   test("6. Register with mismatched passwordConfirm", async () => {
     const client = new Client(serverUrl);
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username: "mismatch",
       password: "password123",
       passwordConfirm: "differentpassword",
@@ -95,7 +95,7 @@ describe("registration", () => {
     const username = "duplicate_user";
 
     // First registration
-    await client.post("/register", {
+    await client.post("/api/b-ext/register", {
       username,
       password: "password123",
       passwordConfirm: "password123",
@@ -104,7 +104,7 @@ describe("registration", () => {
     });
 
     // Second registration with same username
-    const res = await client.post("/register", {
+    const res = await client.post("/api/b-ext/register", {
       username,
       password: "different123",
       passwordConfirm: "different123",
@@ -122,7 +122,7 @@ describe("registration", () => {
     const username = "fullflowuser";
 
     // Register
-    await client.post("/register", {
+    await client.post("/api/b-ext/register", {
       username,
       password: "password123",
       passwordConfirm: "password123",

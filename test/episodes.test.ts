@@ -706,7 +706,7 @@ describe("episodes", () => {
   describe("Access control", () => {
     test("31. GET bob's episodes as alice (403 extension)", async () => {
       // Create bob
-      await new Client(serverUrl).post("/register", {
+      await new Client(serverUrl).post("/api/b-ext/register", {
         username: "bob_episodes",
         password: "password",
         passwordConfirm: "password",

@@ -109,7 +109,7 @@ describe("auth", () => {
 
   test("13. Access bob's devices as alice (403 extension)", async () => {
     // Create bob
-    await new Client(serverUrl).post("/register", {
+    await new Client(serverUrl).post("/api/b-ext/register", {
       username: "bob",
       password: "bobpassword",
       passwordConfirm: "bobpassword",
@@ -147,7 +147,7 @@ describe("auth", () => {
     expect(sessionCookie).not.toBeNull();
 
     // Create bob
-    await new Client(serverUrl).post("/register", {
+    await new Client(serverUrl).post("/api/b-ext/register", {
       username: "bob_cookie_test",
       password: "password123",
       passwordConfirm: "password123",
