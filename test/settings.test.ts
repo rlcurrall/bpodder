@@ -160,19 +160,11 @@ describe("settings", () => {
       expect(res.status).toBe(400);
     });
 
-    test("episode scope — requires both podcast and episode params", async () => {
-      const res = await alice.client.get(
-        `/api/2/settings/${alice.username}/episode.json?podcast=https://example.com/podcast.xml`,
-      );
-      expect(res.status).toBe(400);
-    });
-
     test("episode scope — set and get settings", async () => {
-      const podcastUrl = "https://feeds.example.com/test-podcast.xml";
       const episodeUrl = "https://example.com/episode1.mp3";
 
       const res = await alice.client.post(
-        `/api/2/settings/${alice.username}/episode.json?podcast=${encodeURIComponent(podcastUrl)}&episode=${encodeURIComponent(episodeUrl)}`,
+        `/api/2/settings/${alice.username}/episode.json?episode=${encodeURIComponent(episodeUrl)}`,
         {
           set: { position: 120, completed: false },
           remove: [],

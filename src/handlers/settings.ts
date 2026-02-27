@@ -30,15 +30,14 @@ function buildScopeId(scope: Scope, query: URLSearchParams): { scopeId: string; 
       return { scopeId: podcast };
     }
     case "episode": {
-      const podcast = query.get("podcast");
       const episode = query.get("episode");
-      if (!podcast || !episode) {
+      if (!episode) {
         return {
           scopeId: "",
-          error: badRequest("Missing required query params: podcast and episode"),
+          error: badRequest("Missing required query param: episode"),
         };
       }
-      return { scopeId: `${podcast}\n${episode}` };
+      return { scopeId: episode };
     }
   }
 }
