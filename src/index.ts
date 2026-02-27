@@ -37,7 +37,6 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
 
   const server = serve({
     port: cfg.port,
-    hostname: cfg.host,
     development: process.env.NODE_ENV !== "production",
     routes: {
       // GPodder API v2
@@ -102,6 +101,6 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
 
 if (import.meta.main) {
   const logger = createLogger(config);
-  logger.info(`Starting bpodder on ${config.host}:${config.port}`);
+  logger.info(`Starting bpodder on http://localhost:${config.port}`);
   createApp(config);
 }

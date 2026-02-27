@@ -4,16 +4,11 @@ import { z } from "zod";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
-  HOST: z.string().default("0.0.0.0"),
   DATA_ROOT: z.string().default("./data"),
   DB_FILE: z.string().optional(),
   BASE_URL: z.string().default(""),
   ENABLE_REGISTRATION: z.coerce.boolean().default(false),
   TITLE: z.string().default("bpodder"),
-  KARADAV_URL: z
-    .string()
-    .nullish()
-    .transform((v) => v ?? null),
   MAX_BODY_SIZE: z.coerce.number().default(5_242_880),
   CAPTCHA_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).default("info"),
@@ -47,13 +42,11 @@ const dataRoot = rawEnv.DATA_ROOT;
 
 export const config: Config = {
   port: rawEnv.PORT,
-  host: rawEnv.HOST,
   dataRoot,
   dbFile: rawEnv.DB_FILE ?? `${dataRoot}/data.sqlite`,
   baseUrl: rawEnv.BASE_URL,
   enableRegistration: rawEnv.ENABLE_REGISTRATION,
   title: rawEnv.TITLE,
-  karadavUrl: rawEnv.KARADAV_URL,
   maxBodySize: rawEnv.MAX_BODY_SIZE,
   captchaSecret: rawEnv.CAPTCHA_SECRET ?? loadOrGenerateCaptchaSecret(dataRoot),
   logLevel: rawEnv.LOG_LEVEL,

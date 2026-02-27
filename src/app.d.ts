@@ -17,7 +17,6 @@ interface AppDatabase {
 
 interface Config {
   port: number;
-  host: string;
   dataRoot: string;
   dbFile: string;
   baseUrl: string;
