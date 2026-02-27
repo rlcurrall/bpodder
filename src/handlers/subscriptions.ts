@@ -82,7 +82,7 @@ export function createSubscriptionHandlers(ctx: AppContext): {
         user: userId,
         deviceid: deviceId,
         caption: null,
-        type: null,
+        type: "other",
         data: null,
       },
       ["user", "deviceid"],
