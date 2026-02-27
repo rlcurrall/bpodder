@@ -92,7 +92,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const classes = clsx(
-    className,
+    typeof className === "string" ? className : className?.value,
     styles.base,
     outline ? styles.outline : plain ? styles.plain : clsx(styles.solid, styles.colors[color]),
   );

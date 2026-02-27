@@ -1,5 +1,3 @@
-import { BodyInit } from "bun";
-
 export class Client {
   private base: string;
   private headers: Record<string, string>;

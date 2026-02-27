@@ -1,7 +1,8 @@
-export function clsx(...classes: (unknown | unknown[])[]): string {
+type ClassValue = string | number | boolean | undefined | null;
+export function clsx(...classes: (ClassValue | ClassValue[])[]): string {
   return classes
     .flat()
-    .map((c) => (c == null ? "" : String(c)))
+    .map((c) => (typeof c === "string" ? c : c ? String(c) : ""))
     .filter((c): c is string => c.length > 0)
     .join(" ");
 }

@@ -37,7 +37,10 @@ export function NavbarDivider({ class: className, ...props }: HTMLAttributes<HTM
     <div
       aria-hidden="true"
       {...props}
-      class={clsx(className, "h-6 w-px bg-zinc-950/10 dark:bg-white/10")}
+      class={clsx(
+        typeof className === "string" ? className : className?.value,
+        "h-6 w-px bg-zinc-950/10 dark:bg-white/10",
+      )}
     />
   );
 }
@@ -58,7 +61,13 @@ export function NavbarSection({
 }
 
 export function NavbarSpacer({ class: className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div aria-hidden="true" {...props} class={clsx(className, "-ml-4 flex-1")} />;
+  return (
+    <div
+      aria-hidden="true"
+      {...props}
+      class={clsx(typeof className === "string" ? className : className?.value, "-ml-4 flex-1")}
+    />
+  );
 }
 
 type NavbarItemProps =
