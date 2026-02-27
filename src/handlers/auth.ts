@@ -163,7 +163,7 @@ export function createAuthHandlers(ctx: AppContext): {
       }
     },
 
-    async uiConfig() {
+    async uiConfig(): Promise<Response> {
       return ok({
         title: ctx.config.title,
         enableRegistration: ctx.config.enableRegistration,

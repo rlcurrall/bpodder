@@ -1,7 +1,7 @@
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { options, methodNotAllowed, ok, forbidden, serverError, badRequest } from "../lib/response";
-import { DeviceBody } from "../lib/schemas";
+import { DeviceBody, DeviceType } from "../lib/schemas";
 
 const validDeviceId = /^[\w.-]+$/;
 
@@ -9,7 +9,7 @@ export function createDeviceHandlers(ctx: AppContext): {
   listDevices: RouteDefinition<"/api/2/devices/:username">;
   upsertDevice: RouteDefinition<"/api/2/devices/:username/:deviceid">;
 } {
-  const getDevicesWithCount = (userId: number) => {
+  const getDevicesWithCount = (userId: number): DeviceType[] => {
     const rows = ctx.db.all<{
       deviceid: string;
       caption: string | null;
@@ -28,12 +28,14 @@ export function createDeviceHandlers(ctx: AppContext): {
       userId,
     );
 
-    return rows.map((row) => ({
-      id: row.deviceid,
-      caption: row.caption ?? "",
-      type: row.type ?? "",
-      subscriptions: row.subscriptions,
-    }));
+    return rows.map(
+      (row): DeviceType => ({
+        id: row.deviceid,
+        caption: row.caption ?? "",
+        type: row.type ?? "",
+        subscriptions: row.subscriptions,
+      }),
+    );
   };
 
   return {

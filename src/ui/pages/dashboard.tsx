@@ -1,7 +1,7 @@
 import { route } from "preact-router";
 import { useState, useEffect } from "preact/hooks";
 
-import type { Device, Subscription, EpisodeAction } from "../lib/api";
+import type { Device, EpisodeAction } from "../lib/api";
 
 import { DeviceList } from "../components/device-list";
 import { EpisodeList } from "../components/episode-list";
@@ -19,7 +19,7 @@ interface DashboardPageProps {
 export function DashboardPage(_props: DashboardPageProps) {
   const { username, logout } = useAuth();
   const [devices, setDevices] = useState<Device[]>([]);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<string[]>([]);
   const [episodes, setEpisodes] = useState<EpisodeAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

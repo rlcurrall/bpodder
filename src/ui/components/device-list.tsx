@@ -48,7 +48,9 @@ export function DeviceList({ devices }: DeviceListProps) {
                   key={device.id}
                   class="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0"
                 >
-                  <td class="py-2 px-2 text-zinc-900 dark:text-white">{device.caption}</td>
+                  <td class="py-2 px-2 text-zinc-900 dark:text-white">
+                    {device.caption || device.id}
+                  </td>
                   <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400">{device.type}</td>
                   <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400">{device.subscriptions}</td>
                 </tr>

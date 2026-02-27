@@ -100,3 +100,31 @@ export type SubscriptionChangeBodyType = z.infer<typeof SubscriptionChangeBody>;
 export type SubscriptionPutBodyType = z.infer<typeof SubscriptionPutBody>;
 export type EpisodeActionType = z.infer<typeof EpisodeAction>;
 export type EpisodePostBodyType = z.infer<typeof EpisodePostBody>;
+
+// Response schemas for API responses (shared with UI)
+export const UiConfigResponse = z.object({
+  title: z.string(),
+  enableRegistration: z.boolean(),
+});
+
+export const DeviceResponse = z.object({
+  id: z.string(),
+  caption: z.string(),
+  type: z.string(),
+  subscriptions: z.number(),
+});
+
+export const EpisodeActionResponse = z.object({
+  podcast: z.string(),
+  episode: z.string(),
+  action: z.string(),
+  timestamp: z.string(),
+  position: z.number().optional(),
+  started: z.number().optional(),
+  total: z.number().optional(),
+  device: z.string().optional(),
+});
+
+export type UiConfigType = z.infer<typeof UiConfigResponse>;
+export type DeviceType = z.infer<typeof DeviceResponse>;
+export type EpisodeActionTypeResponse = z.infer<typeof EpisodeActionResponse>;

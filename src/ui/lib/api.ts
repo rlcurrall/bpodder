@@ -1,3 +1,5 @@
+import { DeviceType, EpisodeActionTypeResponse, UiConfigType } from "../../lib/schemas";
+
 const API_BASE = "";
 
 function handleUnauthorized() {
@@ -16,29 +18,10 @@ async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
   return res;
 }
 
-export interface UiConfig {
-  title: string;
-  enableRegistration: boolean;
-}
+export type UiConfig = UiConfigType;
+export type Device = DeviceType;
 
-export interface Device {
-  id: string;
-  caption: string;
-  type: string;
-  subscriptions: number;
-}
-
-export interface Subscription {
-  url: string;
-  title?: string;
-}
-
-export interface EpisodeAction {
-  podcast: string;
-  episode: string;
-  action: string;
-  timestamp: string;
-}
+export type EpisodeAction = EpisodeActionTypeResponse;
 
 export async function getUiConfig(): Promise<UiConfig> {
   const res = await fetch(`${API_BASE}/api/b-ext/config`);
@@ -107,13 +90,12 @@ export async function getDevices(username: string): Promise<Device[]> {
   return res.json();
 }
 
-export async function getSubscriptions(username: string): Promise<Subscription[]> {
+export async function getSubscriptions(username: string): Promise<string[]> {
   const res = await apiFetch(
-    `${API_BASE}/api/2/subscriptions/${encodeURIComponent(username)}/default.json`,
+    `${API_BASE}/api/2/subscriptions/${encodeURIComponent(username)}.json`,
   );
   if (!res.ok) throw new Error("Failed to fetch subscriptions");
-  const data = await res.json();
-  return data.urls || [];
+  return res.json();
 }
 
 export async function getEpisodeActions(username: string): Promise<EpisodeAction[]> {

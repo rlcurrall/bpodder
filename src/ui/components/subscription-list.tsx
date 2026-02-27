@@ -1,10 +1,8 @@
-import type { Subscription } from "../lib/api";
-
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
 import { Text, TextLink } from "./text";
 
 interface SubscriptionListProps {
-  subscriptions: Subscription[];
+  subscriptions: string[];
 }
 
 export function SubscriptionList({ subscriptions }: SubscriptionListProps) {
@@ -28,18 +26,13 @@ export function SubscriptionList({ subscriptions }: SubscriptionListProps) {
       </CardHeader>
       <CardContent>
         <ul class="space-y-2">
-          {subscriptions.map((sub) => (
+          {subscriptions.map((url) => (
             <li
-              key={sub.url}
+              key={url}
               class="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0 pb-2 last:pb-0"
             >
-              <TextLink
-                href={sub.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="truncate block"
-              >
-                {sub.title || sub.url}
+              <TextLink href={url} target="_blank" rel="noopener noreferrer" class="truncate block">
+                {url}
               </TextLink>
             </li>
           ))}
