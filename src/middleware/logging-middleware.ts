@@ -8,7 +8,6 @@ export function createLoggingMiddleware(
   // Request logging wrapper
   const withLogging = <T extends string>(handler: RouteHandler<T>): RouteHandler<T> => {
     return async (req, s) => {
-      // Add request ID via mutation for log correlation
       const start = performance.now();
       const res = await handler(req, s);
       const url = new URL(req.url);
