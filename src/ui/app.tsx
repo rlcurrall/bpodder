@@ -1,28 +1,36 @@
-import { Router, route } from "preact-router";
+import { Route, Router, route } from "preact-router";
 
 import { AuthProvider, useAuth } from "./lib/auth";
+import { ActivityPage } from "./pages/activity";
 import { DashboardPage } from "./pages/dashboard";
+import { DevicesPage } from "./pages/devices";
 import { LoginPage } from "./pages/login";
 import { RegisterPage } from "./pages/register";
+import { SettingsPage } from "./pages/settings";
+import { SubscriptionsPage } from "./pages/subscriptions";
 
 function Routes() {
   const { isAuthenticated } = useAuth();
 
-  // Auth redirect logic
   const handleRoute = (e: { url: string }) => {
     if (isAuthenticated && (e.url === "/login" || e.url === "/register")) {
       route("/dashboard", true);
-    } else if (!isAuthenticated && e.url === "/dashboard") {
-      route("/login", true);
+    } else if (!isAuthenticated && e.url.startsWith("/")) {
+      if (e.url !== "/login" && e.url !== "/register") {
+        route("/login", true);
+      }
     }
   };
 
   return (
     <Router onChange={handleRoute}>
-      <LoginPage path="/login" />
-      <RegisterPage path="/register" />
-      <DashboardPage path="/dashboard" />
-      <LoginPage default />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/dashboard" component={DashboardPage} default />
+      <Route path="/subscriptions" component={SubscriptionsPage} />
+      <Route path="/devices" component={DevicesPage} />
+      <Route path="/activity" component={ActivityPage} />
+      <Route path="/settings" component={SettingsPage} />
     </Router>
   );
 }

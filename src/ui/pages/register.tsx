@@ -9,12 +9,7 @@ import { Input } from "../components/input";
 import { Text, TextLink } from "../components/text";
 import * as api from "../lib/api";
 
-interface RegisterPageProps {
-  path?: string;
-  default?: boolean;
-}
-
-export function RegisterPage(_props: RegisterPageProps) {
+export function RegisterPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");

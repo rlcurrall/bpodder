@@ -10,6 +10,7 @@ import {
   RegisterRequest,
   UiConfigResponse,
   UiConfigResponseType,
+  SettingsResponse,
 } from "../../lib/schemas/index";
 
 const API_BASE = "";
@@ -103,6 +104,22 @@ export async function getDevices(username: string): Promise<Device[]> {
   return z.array(DeviceResponse).parse(await res.json());
 }
 
+export async function updateDevice(
+  username: string,
+  deviceId: string,
+  updates: { caption?: string; type?: string },
+): Promise<void> {
+  const res = await apiFetch(
+    `${API_BASE}/api/2/devices/${encodeURIComponent(username)}/${encodeURIComponent(deviceId)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    },
+  );
+  if (!res.ok) throw new Error("Failed to update device");
+}
+
 export async function getSubscriptions(username: string): Promise<string[]> {
   const res = await apiFetch(
     `${API_BASE}/api/2/subscriptions/${encodeURIComponent(username)}.json`,
@@ -116,4 +133,50 @@ export async function getEpisodeActions(username: string): Promise<EpisodeAction
   if (!res.ok) throw new Error("Failed to fetch episode actions");
   const data = EpisodeListResponse.parse(await res.json());
   return data.actions || [];
+}
+
+export async function subscribeToPodcast(username: string, url: string): Promise<void> {
+  const res = await apiFetch(
+    `${API_BASE}/api/2/subscriptions/${encodeURIComponent(username)}.json`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ add: [url] }),
+    },
+  );
+  if (!res.ok) throw new Error("Failed to subscribe");
+}
+
+export async function unsubscribeFromPodcast(username: string, url: string): Promise<void> {
+  const res = await apiFetch(
+    `${API_BASE}/api/2/subscriptions/${encodeURIComponent(username)}.json`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remove: [url] }),
+    },
+  );
+  if (!res.ok) throw new Error("Failed to unsubscribe");
+}
+
+export function getOpmlUrl(username: string): string {
+  return `${API_BASE}/subscriptions/${encodeURIComponent(username)}.opml`;
+}
+
+export async function getSettings(username: string): Promise<Record<string, unknown>> {
+  const res = await apiFetch(`${API_BASE}/api/2/settings/${encodeURIComponent(username)}.json`);
+  if (!res.ok) throw new Error("Failed to fetch settings");
+  return SettingsResponse.parse(await res.json());
+}
+
+export async function updateSettings(
+  username: string,
+  settings: Record<string, string>,
+): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/api/2/settings/${encodeURIComponent(username)}.json`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error("Failed to update settings");
 }

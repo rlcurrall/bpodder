@@ -76,6 +76,10 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       "/login": homepage,
       "/register": homepage,
       "/dashboard": homepage,
+      "/subscriptions": homepage,
+      "/devices": homepage,
+      "/activity": homepage,
+      "/settings": homepage,
     },
 
     fetch: defaultHandler,

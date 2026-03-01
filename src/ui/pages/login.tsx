@@ -9,12 +9,7 @@ import { Text, TextLink } from "../components/text";
 import * as api from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-interface LoginPageProps {
-  path?: string;
-  default?: boolean;
-}
-
-export function LoginPage(_props: LoginPageProps) {
+export function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
