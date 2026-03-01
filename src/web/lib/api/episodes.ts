@@ -1,4 +1,5 @@
-import { EpisodeActionResponseType, EpisodeListResponse } from "../../../lib/schemas/index";
+import { EpisodeActionResponseType, EpisodeListResponse } from "@shared/schemas/index";
+
 import { API_BASE, apiFetch } from "./fetch";
 
 export type EpisodeAction = EpisodeActionResponseType;

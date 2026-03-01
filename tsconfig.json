@@ -16,6 +16,11 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "paths": {
+      "@server/*": ["./src/server/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@web/*": ["./src/web/*"]
+    }
   }
 }

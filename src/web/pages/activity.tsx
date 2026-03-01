@@ -1,4 +1,4 @@
-import type { EpisodeActionResponseType } from "../../lib/schemas";
+import type { EpisodeActionResponseType } from "../../shared/schemas";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../components/card";
 import { PageLayout } from "../components/page-layout";

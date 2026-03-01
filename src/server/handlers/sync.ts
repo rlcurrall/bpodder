@@ -1,8 +1,9 @@
+import { SyncRequest, SyncStatusResponse } from "@shared/schemas/index";
+
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { options, methodNotAllowed, ok, badRequest, forbidden, serverError } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import { SyncRequest, SyncStatusResponse } from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/sync-devices/:username": {

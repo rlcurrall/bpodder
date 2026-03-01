@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/preact-query";
+import type { SettingsResponseType } from "@shared/schemas";
 
-import type { SettingsResponseType } from "../../lib/schemas";
+import { useQuery } from "@tanstack/preact-query";
 
 import { getSettings } from "../lib/api/settings";
 import { useAuth } from "../lib/auth";

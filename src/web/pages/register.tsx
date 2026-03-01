@@ -1,7 +1,7 @@
 import { useLocation } from "preact-iso";
 import { useState } from "preact/hooks";
 
-import { RegisterRequest } from "../../lib/schemas";
+import { RegisterRequest } from "../../shared/schemas";
 import { Button } from "../components/button";
 import { Field, Label, ErrorMessage } from "../components/fieldset";
 import { Heading } from "../components/heading";

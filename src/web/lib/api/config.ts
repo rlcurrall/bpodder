@@ -1,4 +1,5 @@
-import { UiConfigResponse, UiConfigResponseType } from "../../../lib/schemas/index";
+import { UiConfigResponse, UiConfigResponseType } from "@shared/schemas/index";
+
 import { API_BASE } from "./fetch";
 
 export type UiConfig = UiConfigResponseType;

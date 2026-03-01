@@ -1,13 +1,14 @@
-import { requireAuth } from "../lib/auth";
-import { parseParam } from "../lib/params";
-import { options, methodNotAllowed, badRequest, forbidden, serverError, ok } from "../lib/response";
-import { createRouteHandlerMap } from "../lib/routing";
 import {
   SettingsUpdateRequest,
   SettingsResponse,
   validScopes,
   type Scope,
-} from "../lib/schemas/index";
+} from "@shared/schemas/index";
+
+import { requireAuth } from "../lib/auth";
+import { parseParam } from "../lib/params";
+import { options, methodNotAllowed, badRequest, forbidden, serverError, ok } from "../lib/response";
+import { createRouteHandlerMap } from "../lib/routing";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/settings/:username/:scope": {

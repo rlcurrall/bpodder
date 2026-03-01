@@ -1,4 +1,5 @@
-import { ErrorResponse, LoginRequest, RegisterRequest } from "../../../lib/schemas/index";
+import { ErrorResponse, LoginRequest, RegisterRequest } from "@shared/schemas/index";
+
 import { API_BASE, apiFetch } from "./fetch";
 
 export async function login(username: string, password: string): Promise<boolean> {

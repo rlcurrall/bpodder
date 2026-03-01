@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 
-import type { SettingsResponseType } from "../../lib/schemas";
+import type { SettingsResponseType } from "../../shared/schemas";
 
 import { Button } from "../components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/card";

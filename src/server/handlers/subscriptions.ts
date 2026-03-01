@@ -1,3 +1,11 @@
+import {
+  SubscriptionSyncRequest,
+  SubscriptionReplaceRequest,
+  SubscriptionDeltaResponse,
+  SubscriptionUploadResponse,
+  SubscriptionListResponse,
+  isHttpUrl,
+} from "@shared/schemas/index";
 import { z } from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
@@ -14,14 +22,6 @@ import {
   notFound,
 } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import {
-  SubscriptionSyncRequest,
-  SubscriptionReplaceRequest,
-  SubscriptionDeltaResponse,
-  SubscriptionUploadResponse,
-  SubscriptionListResponse,
-  isHttpUrl,
-} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   // V2 delta sync: GET|POST /api/2/subscriptions/:username/:deviceid

@@ -1,3 +1,9 @@
+import {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  SuccessResponse,
+} from "@shared/schemas/index";
 import { z } from "zod/v4";
 
 import { requireAuth, createSessionCookie, clearSessionCookie } from "../lib/auth";
@@ -13,12 +19,6 @@ import {
   unauthorized,
 } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import {
-  LoginRequest,
-  LoginResponse,
-  RegisterRequest,
-  SuccessResponse,
-} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/auth/:username/:action": {

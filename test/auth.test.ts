@@ -156,13 +156,15 @@ describe("auth", () => {
     });
 
     // Try to login as bob with alice's session cookie (mismatch)
+    // NOTE: Cookie mismatch no longer returns 400 - we ignore mismatched cookies
+    // and fall through to Basic auth for AntennaPod compatibility
     const clientWithAliceCookie = new Client(serverUrl)
       .withCookie(`sessionid=${sessionCookie}`)
       .withBasicAuth("bob_cookie_test", "password123");
     const res = await clientWithAliceCookie.post("/api/2/auth/bob_cookie_test/login.json");
 
-    // Per GPodder API: cookie-username mismatch returns 400
-    expect(res.status).toBe(400);
+    // With valid Basic auth, login succeeds even with mismatched cookie
+    expect(res.status).toBe(200);
   });
 
   test("18. POST login with valid session cookie only (no Basic auth)", async () => {

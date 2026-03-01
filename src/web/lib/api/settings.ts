@@ -1,4 +1,5 @@
-import { SettingsResponse } from "../../../lib/schemas/index";
+import { SettingsResponse } from "@shared/schemas/index";
+
 import { API_BASE, apiFetch } from "./fetch";
 
 export async function getSettings(username: string): Promise<Record<string, unknown>> {

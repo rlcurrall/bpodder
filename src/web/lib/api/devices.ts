@@ -1,6 +1,6 @@
+import { DeviceResponse, DeviceResponseType } from "@shared/schemas/index";
 import { z } from "zod/v4";
 
-import { DeviceResponse, DeviceResponseType } from "../../../lib/schemas/index";
 import { API_BASE, apiFetch } from "./fetch";
 
 export type Device = DeviceResponseType;

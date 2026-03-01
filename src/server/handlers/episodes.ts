@@ -1,15 +1,15 @@
+import {
+  EpisodeActionResponseType,
+  EpisodeListResponse,
+  EpisodeUploadResponse,
+  EpisodeUploadRequest,
+} from "@shared/schemas/index";
 import { z } from "zod/v4";
 
 import { requireAuth } from "../lib/auth";
 import { parseParam } from "../lib/params";
 import { badRequest, options, methodNotAllowed, notFound, ok, serverError } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
-import {
-  EpisodeActionResponseType,
-  EpisodeListResponse,
-  EpisodeUploadResponse,
-  EpisodeUploadRequest,
-} from "../lib/schemas/index";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/episodes/:username": {

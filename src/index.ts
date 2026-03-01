@@ -1,18 +1,18 @@
+import { config } from "@server/config";
 import { serve } from "bun";
 
-import { config } from "./config";
-import { createDB } from "./db";
-import createAuthHandlers from "./handlers/auth";
-import createDeviceHandlers from "./handlers/devices";
-import createEpisodeHandlers from "./handlers/episodes";
-import createSettingsHandlers from "./handlers/settings";
-import createSubscriptionHandlers from "./handlers/subscriptions";
-import createSyncHandlers from "./handlers/sync";
-import { SessionStore } from "./lib/auth";
-import { createLogger } from "./lib/logger";
-import { createDefaultHandler } from "./lib/routing";
-import { createLoggingMiddleware } from "./middleware/logging-middleware";
-import homepage from "./ui/index.html";
+import { createDB } from "./server/db";
+import createAuthHandlers from "./server/handlers/auth";
+import createDeviceHandlers from "./server/handlers/devices";
+import createEpisodeHandlers from "./server/handlers/episodes";
+import createSettingsHandlers from "./server/handlers/settings";
+import createSubscriptionHandlers from "./server/handlers/subscriptions";
+import createSyncHandlers from "./server/handlers/sync";
+import { SessionStore } from "./server/lib/auth";
+import { createLogger } from "./server/lib/logger";
+import { createDefaultHandler } from "./server/lib/routing";
+import { createLoggingMiddleware } from "./server/middleware/logging-middleware";
+import homepage from "./web/index.html";
 
 export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const db = createDB(cfg.dbFile);

@@ -1,6 +1,5 @@
+import { ErrorResponse } from "@shared/schemas/index";
 import { z } from "zod/v4";
-
-import { ErrorResponse } from "./schemas/index";
 
 // All response helpers include CORS header per GPodder API spec
 export const CORS = { "Access-Control-Allow-Origin": "*" };
