@@ -7,7 +7,7 @@ import { Field, Label, ErrorMessage } from "../components/fieldset";
 import { Heading } from "../components/heading";
 import { Input } from "../components/input";
 import { Text, TextLink } from "../components/text";
-import * as api from "../lib/api";
+import * as api from "../lib/api/auth";
 
 export function RegisterPage() {
   const { route } = useLocation();

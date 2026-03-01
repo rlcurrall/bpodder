@@ -1,5 +1,4 @@
-import { useLocation } from "preact-iso";
-import { useState, useEffect } from "preact/hooks";
+import { useState } from "preact/hooks";
 
 import type { SettingsResponseType } from "../../lib/schemas";
 
@@ -8,42 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/card";
 import { Input } from "../components/input";
 import { PageLayout } from "../components/page-layout";
 import { TextLink } from "../components/text";
-import * as api from "../lib/api";
+import { useSettings } from "../hooks/use-settings";
 import { useAuth } from "../lib/auth";
 
 export function SettingsPage() {
-  const { route } = useLocation();
   const { username } = useAuth();
-  const [settings, setSettings] = useState<SettingsResponseType>({});
-  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Construct sync URL
   const syncUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/${encodeURIComponent(username || "")}`
       : "";
 
-  useEffect(() => {
-    if (!username) {
-      route("/login");
-      return;
-    }
-
-    loadSettings();
-  }, [username]);
-
-  async function loadSettings() {
-    try {
-      const data = await api.getSettings(username!);
-      setSettings(data);
-    } catch {
-      // Settings may not be available, that's ok
-      setSettings({});
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: settings = {} as SettingsResponseType, isPending } = useSettings();
 
   const handleCopyUrl = async () => {
     try {
@@ -51,7 +27,6 @@ export function SettingsPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: select the input
       const input = document.getElementById("sync-url") as HTMLInputElement;
       if (input) {
         input.select();
@@ -59,7 +34,7 @@ export function SettingsPage() {
     }
   };
 
-  if (loading) {
+  if (isPending) {
     return (
       <PageLayout currentPath="/settings" title="Settings">
         <div class="text-center text-zinc-500 dark:text-zinc-400">Loading...</div>

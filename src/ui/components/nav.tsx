@@ -1,6 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
-
-import * as api from "../lib/api";
+import { useUiConfig } from "../hooks/use-ui-config";
 import { Navbar, NavbarItem, NavbarLabel, NavbarSection, NavbarSpacer } from "./navbar";
 
 interface NavProps {
@@ -8,19 +6,13 @@ interface NavProps {
 }
 
 export function Nav({ onLogout }: NavProps) {
-  const [title, setTitle] = useState("bpodder");
-
-  useEffect(() => {
-    api.getUiConfig().then((config) => {
-      setTitle(config.title);
-    });
-  }, []);
+  const { data: uiConfig } = useUiConfig();
 
   return (
     <Navbar>
       <NavbarSection>
         <NavbarItem current href="/dashboard">
-          <NavbarLabel>{title}</NavbarLabel>
+          <NavbarLabel>{uiConfig?.title ?? "bpodder"}</NavbarLabel>
         </NavbarItem>
       </NavbarSection>
       <NavbarSpacer />

@@ -1,7 +1,7 @@
 import { createContext, type ComponentChildren } from "preact";
 import { useState, useContext, useCallback } from "preact/hooks";
 
-import * as api from "./api";
+import * as api from "./api/auth";
 
 interface AuthContextValue {
   username: string | null;

@@ -1,50 +1,12 @@
-import { useLocation } from "preact-iso";
-import { useState, useEffect } from "preact/hooks";
-
-import type { Device, EpisodeAction } from "../lib/api";
-
 import { Card, CardContent } from "../components/card";
 import { PageLayout } from "../components/page-layout";
 import { Text, TextLink } from "../components/text";
-import * as api from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useDashboard } from "../hooks/use-dashboard";
 
 export function DashboardPage() {
-  const { route } = useLocation();
-  const { username } = useAuth();
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [subscriptions, setSubscriptions] = useState<string[]>([]);
-  const [episodes, setEpisodes] = useState<EpisodeAction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, isPending, error } = useDashboard();
 
-  useEffect(() => {
-    if (!username) {
-      route("/login");
-      return;
-    }
-
-    async function loadData() {
-      try {
-        const [devs, subs, eps] = await Promise.all([
-          api.getDevices(username!),
-          api.getSubscriptions(username!),
-          api.getEpisodeActions(username!),
-        ]);
-        setDevices(devs);
-        setSubscriptions(subs);
-        setEpisodes(eps.slice(0, 10));
-      } catch {
-        setError("Failed to load data");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadData();
-  }, [username]);
-
-  if (loading) {
+  if (isPending) {
     return (
       <PageLayout currentPath="/dashboard" title="Dashboard">
         <div class="text-center text-zinc-500 dark:text-zinc-400">Loading...</div>
@@ -52,11 +14,15 @@ export function DashboardPage() {
     );
   }
 
+  const devices = data?.devices ?? [];
+  const subscriptions = data?.subscriptions ?? [];
+  const episodes = data?.episodes ?? [];
+
   return (
     <PageLayout currentPath="/dashboard" title="Dashboard">
       {error && (
         <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500 text-red-600 dark:text-red-400 px-4 py-3 rounded mb-4">
-          {error}
+          Failed to load data
         </div>
       )}
 

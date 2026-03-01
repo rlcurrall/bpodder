@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/preact-query";
 import { LocationProvider, Route, Router, useLocation } from "preact-iso";
 import { useEffect } from "preact/hooks";
 
@@ -9,6 +10,8 @@ import { LoginPage } from "./pages/login";
 import { RegisterPage } from "./pages/register";
 import { SettingsPage } from "./pages/settings";
 import { SubscriptionsPage } from "./pages/subscriptions";
+
+const queryClient = new QueryClient();
 
 function Routes() {
   const { isAuthenticated } = useAuth();
@@ -38,10 +41,12 @@ function Routes() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <LocationProvider>
-        <Routes />
-      </LocationProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LocationProvider>
+          <Routes />
+        </LocationProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

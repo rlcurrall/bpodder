@@ -1,4 +1,4 @@
-import type { Device } from "../lib/api";
+import type { Device } from "../lib/api/devices";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
 import { Text } from "./text";

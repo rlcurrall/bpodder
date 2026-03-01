@@ -17,6 +17,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@tanstack/preact-query": "^5.91.1",
     "bun-plugin-tailwind": "^0.1.2",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",

@@ -1,5 +1,4 @@
-import { useLocation } from "preact-iso";
-import { useState, useEffect } from "preact/hooks";
+import { useState } from "preact/hooks";
 
 import type { DeviceResponseType } from "../../lib/schemas";
 
@@ -9,41 +8,18 @@ import { Input } from "../components/input";
 import { PageLayout } from "../components/page-layout";
 import { Select } from "../components/select";
 import { Text } from "../components/text";
-import * as api from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useDevices, useUpdateDevice } from "../hooks/use-devices";
 
 const DEVICE_TYPES = ["desktop", "laptop", "mobile", "server", "other"] as const;
 
 export function DevicesPage() {
-  const { route } = useLocation();
-  const { username } = useAuth();
-  const [devices, setDevices] = useState<DeviceResponseType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCaption, setEditCaption] = useState("");
   const [editType, setEditType] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!username) {
-      route("/login");
-      return;
-    }
+  const { data: devices = [], isPending, error } = useDevices();
 
-    loadDevices();
-  }, [username]);
-
-  async function loadDevices() {
-    try {
-      const devs = await api.getDevices(username!);
-      setDevices(devs);
-    } catch {
-      setError("Failed to load devices");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const updateMutation = useUpdateDevice();
 
   const startEditing = (device: DeviceResponseType) => {
     setEditingId(device.id);
@@ -57,23 +33,14 @@ export function DevicesPage() {
     setEditType("");
   };
 
-  const saveDevice = async (deviceId: string) => {
-    setSaving(true);
-    try {
-      await api.updateDevice(username!, deviceId, {
-        caption: editCaption,
-        type: editType,
-      });
-      setEditingId(null);
-      await loadDevices();
-    } catch {
-      setError("Failed to update device");
-    } finally {
-      setSaving(false);
-    }
+  const saveDevice = (deviceId: string) => {
+    updateMutation.mutate(
+      { deviceId, caption: editCaption, type: editType },
+      { onSuccess: () => setEditingId(null) },
+    );
   };
 
-  if (loading) {
+  if (isPending) {
     return (
       <PageLayout currentPath="/devices" title="Devices">
         <div class="text-center text-zinc-500 dark:text-zinc-400">Loading...</div>
@@ -83,9 +50,9 @@ export function DevicesPage() {
 
   return (
     <PageLayout currentPath="/devices" title="Devices">
-      {error && (
+      {(error || updateMutation.error) && (
         <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500 text-red-600 dark:text-red-400 px-4 py-3 rounded mb-4">
-          {error}
+          {error ? "Failed to load devices" : "Failed to update device"}
         </div>
       )}
 
@@ -160,12 +127,16 @@ export function DevicesPage() {
                             <div class="h-full flex items-center justify-end gap-2">
                               <Button
                                 onClick={() => saveDevice(device.id)}
-                                disabled={saving}
+                                disabled={updateMutation.isPending}
                                 color="blue"
                               >
-                                {saving ? "Saving..." : "Save"}
+                                {updateMutation.isPending ? "Saving..." : "Save"}
                               </Button>
-                              <Button onClick={cancelEditing} disabled={saving} plain>
+                              <Button
+                                onClick={cancelEditing}
+                                disabled={updateMutation.isPending}
+                                plain
+                              >
                                 Cancel
                               </Button>
                             </div>

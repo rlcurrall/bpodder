@@ -1,13 +1,9 @@
-import { useLocation } from "preact-iso";
-import { useState, useEffect } from "preact/hooks";
-
 import type { EpisodeActionResponseType } from "../../lib/schemas";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../components/card";
 import { PageLayout } from "../components/page-layout";
 import { Text } from "../components/text";
-import * as api from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useEpisodeActions } from "../hooks/use-episodes";
 
 function formatTimestamp(ts: string): string {
   return new Date(ts).toLocaleString();
@@ -36,33 +32,13 @@ function getActionBadgeClass(action: string): string {
 }
 
 export function ActivityPage() {
-  const { route } = useLocation();
-  const { username } = useAuth();
-  const [episodes, setEpisodes] = useState<EpisodeActionResponseType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    data: episodes = [] as EpisodeActionResponseType[],
+    isPending,
+    error,
+  } = useEpisodeActions();
 
-  useEffect(() => {
-    if (!username) {
-      route("/login");
-      return;
-    }
-
-    loadActivity();
-  }, [username]);
-
-  async function loadActivity() {
-    try {
-      const eps = await api.getEpisodeActions(username!);
-      setEpisodes(eps);
-    } catch {
-      setError("Failed to load activity");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) {
+  if (isPending) {
     return (
       <PageLayout currentPath="/activity" title="Activity">
         <div class="text-center text-zinc-500 dark:text-zinc-400">Loading...</div>
@@ -74,7 +50,7 @@ export function ActivityPage() {
     <PageLayout currentPath="/activity" title="Activity">
       {error && (
         <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500 text-red-600 dark:text-red-400 px-4 py-3 rounded mb-4">
-          {error}
+          Failed to load activity
         </div>
       )}
 

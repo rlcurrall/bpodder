@@ -1,12 +1,12 @@
 import { useLocation } from "preact-iso";
-import { useState, useEffect } from "preact/hooks";
+import { useState } from "preact/hooks";
 
 import { Button } from "../components/button";
 import { Field, Label, ErrorMessage } from "../components/fieldset";
 import { Heading } from "../components/heading";
 import { Input } from "../components/input";
 import { Text, TextLink } from "../components/text";
-import * as api from "../lib/api";
+import { useUiConfig } from "../hooks/use-ui-config";
 import { useAuth } from "../lib/auth";
 
 export function LoginPage() {
@@ -14,14 +14,8 @@ export function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [showRegister, setShowRegister] = useState(false);
   const { login } = useAuth();
-
-  useEffect(() => {
-    api.getUiConfig().then((config) => {
-      setShowRegister(config.enableRegistration);
-    });
-  }, []);
+  const { data: uiConfig } = useUiConfig();
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -67,7 +61,7 @@ export function LoginPage() {
             Login
           </Button>
         </form>
-        {showRegister && (
+        {uiConfig?.enableRegistration && (
           <Text class="text-center mt-4">
             Don't have an account? <TextLink href="/register">Register</TextLink>
           </Text>
