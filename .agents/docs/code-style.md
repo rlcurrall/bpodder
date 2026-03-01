@@ -26,9 +26,9 @@ Handlers throw `Response` objects for auth/validation failures:
 try {
   // handler logic
 } catch (e) {
-  if (e instanceof Response) return e
-  ctx.logger.error({ err: e }, "context")
-  return serverError()
+  if (e instanceof Response) return e;
+  ctx.logger.error({ err: e }, "context");
+  return serverError();
 }
 ```
 

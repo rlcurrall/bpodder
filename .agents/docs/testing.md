@@ -20,17 +20,17 @@ TEST_URL=http://localhost:8080 bun test     # Terminal 2
 
 ```typescript
 describe("feature", () => {
-  let serverUrl: string
-  let alice: TestUser
+  let serverUrl: string;
+  let alice: TestUser;
 
   beforeAll(async () => {
-    serverUrl = getServerUrl()
-    alice = await createTestUser(serverUrl)
-  })
+    serverUrl = getServerUrl();
+    alice = await createTestUser(serverUrl);
+  });
 
   test("does something", async () => {
-    const res = await alice.client.get("/api/2/...")
-    expect(res.status).toBe(200)
-  })
-})
+    const res = await alice.client.get("/api/2/...");
+    expect(res.status).toBe(200);
+  });
+});
 ```
