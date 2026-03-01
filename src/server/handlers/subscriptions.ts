@@ -463,16 +463,15 @@ function ensureDevice(
   ctx: AppContext,
   { userId, deviceId }: { userId: number; deviceId: string },
 ): number {
-  ctx.db.upsert(
-    "devices",
-    {
-      user: userId,
-      deviceid: deviceId,
-      caption: null,
-      type: "other", // per GPodder API spec, we don't have device type info so default to "other". TODO: figure out how to source this.
-      data: null,
-    },
-    ["user", "deviceid"],
+  ctx.db.run(
+    `INSERT INTO devices (user, deviceid, caption, type, data)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user, deviceid) DO NOTHING`,
+    userId,
+    deviceId,
+    null,
+    "other",
+    null,
   );
 
   const device = ctx.db.first<{ id: number }>(

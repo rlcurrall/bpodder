@@ -1,5 +1,6 @@
 import { Database, Statement } from "bun:sqlite";
 
+import { LRUCache } from "../lib/cache";
 import { migrations } from "./migrations";
 
 export function createDB(path: string): DB {
@@ -13,67 +14,102 @@ export function createDB(path: string): DB {
 
 export class DB implements AppDatabase {
   private db: Database;
-  private statements: Map<string, Statement> = new Map();
+  private statements: LRUCache<string, Statement>;
+  private txDepth = 0;
+  private closed = false;
+  private static readonly MAX_CACHED_STATEMENTS = 1000;
 
   constructor(db: Database) {
     this.db = db;
+    this.statements = new LRUCache<string, Statement>(DB.MAX_CACHED_STATEMENTS);
   }
 
   first<T>(sql: string, ...params: unknown[]): T | null {
+    this.assertOpen();
     const stmt = this.getStatement(sql);
     return stmt.get(...params) as T | null;
   }
 
   all<T>(sql: string, ...params: unknown[]): T[] {
+    this.assertOpen();
     const stmt = this.getStatement(sql);
     return stmt.all(...params) as T[];
   }
 
   run(sql: string, ...params: unknown[]): { changes: number; lastInsertRowid: number | bigint } {
+    this.assertOpen();
     const stmt = this.getStatement(sql);
     return stmt.run(...params);
   }
 
   transaction<T>(fn: () => T): T {
-    this.db.run("BEGIN IMMEDIATE");
+    this.assertOpen();
+    const isNested = this.txDepth > 0;
+    const savepointName = `sp_${this.txDepth}`;
+
+    if (isNested) {
+      this.db.run(`SAVEPOINT ${savepointName}`);
+    } else {
+      this.db.run("BEGIN IMMEDIATE");
+    }
+
+    this.txDepth++;
+
     try {
       const result = fn();
-      this.db.run("COMMIT");
+      this.txDepth--;
+
+      if (isNested) {
+        this.db.run(`RELEASE SAVEPOINT ${savepointName}`);
+      } else {
+        this.db.run("COMMIT");
+      }
+
       return result;
     } catch (error) {
-      this.db.run("ROLLBACK");
+      this.txDepth--;
+
+      try {
+        if (isNested) {
+          this.db.run(`ROLLBACK TO SAVEPOINT ${savepointName}`);
+          this.db.run(`RELEASE SAVEPOINT ${savepointName}`);
+        } else {
+          this.db.run("ROLLBACK");
+        }
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          "Transaction failed and rollback also failed",
+        );
+      }
+
       throw error;
     }
   }
 
-  upsert(table: string, row: Record<string, unknown>, conflictCols: string[]): void {
-    const columns = Object.keys(row);
-    const placeholders = columns.map(() => "?").join(", ");
-    const updateCols = columns.filter((c) => !conflictCols.includes(c));
-
-    if (conflictCols.length === 0) {
-      throw new Error("upsert requires at least one conflict column");
-    }
-
-    const sql = `
-      INSERT INTO ${table} (${columns.join(", ")})
-      VALUES (${placeholders})
-      ON CONFLICT(${conflictCols.join(", ")})
-      DO UPDATE SET ${updateCols.map((c) => `${c} = excluded.${c}`).join(", ")}
-    `;
-
-    this.run(sql, ...Object.values(row));
-  }
-
   close(): void {
+    if (this.closed) {
+      return;
+    }
+    this.statements.clear();
     this.db.close();
+    this.closed = true;
   }
 
   private getStatement(sql: string): Statement {
-    if (!this.statements.has(sql)) {
-      this.statements.set(sql, this.db.prepare(sql));
+    this.assertOpen();
+    let stmt = this.statements.get(sql);
+    if (!stmt) {
+      stmt = this.db.prepare(sql);
+      this.statements.set(sql, stmt);
     }
-    return this.statements.get(sql)!;
+    return stmt;
+  }
+
+  private assertOpen(): void {
+    if (this.closed) {
+      throw new Error("database is closed");
+    }
   }
 }
 
@@ -101,9 +137,16 @@ export function runMigrations(db: Database): void {
       db.run("INSERT INTO _migrations (name) VALUES (?)", [migration.name]);
       db.run("COMMIT");
     } catch (error) {
-      db.run("ROLLBACK");
-      console.error(`Migration "${migration.name}" failed:`, error);
-      throw error;
+      try {
+        db.run("ROLLBACK");
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          `Migration "${migration.name}" failed and rollback also failed`,
+        );
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Migration "${migration.name}" failed: ${message}`);
     }
   }
 }
