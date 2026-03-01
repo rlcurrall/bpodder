@@ -59,10 +59,8 @@ export default createRouteHandlerMap((ctx) => ({
                   status: 200,
                   headers,
                 });
-              } else if (sessionUser && sessionUser.name !== username) {
-                // Cookie username mismatch per GPodder spec
-                return badRequest("Cookie username mismatch");
               }
+              // Cookie belongs to different user — ignore it and fall through to Basic auth
             }
           }
         }

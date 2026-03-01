@@ -190,7 +190,16 @@ export async function requireAuth(
         session.userId,
       );
       if (user) {
-        return checkAccess(user, requestedUsername);
+        // If cookie belongs to a different user, skip it and try Basic auth
+        if (
+          requestedUsername &&
+          requestedUsername !== "current" &&
+          requestedUsername !== user.name
+        ) {
+          // fall through to Basic auth
+        } else {
+          return checkAccess(user, requestedUsername);
+        }
       }
     }
   }
