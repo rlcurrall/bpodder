@@ -1,4 +1,5 @@
-import { Route, Router, route } from "preact-router";
+import { LocationProvider, Route, Router, useLocation } from "preact-iso";
+import { useEffect } from "preact/hooks";
 
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ActivityPage } from "./pages/activity";
@@ -11,26 +12,26 @@ import { SubscriptionsPage } from "./pages/subscriptions";
 
 function Routes() {
   const { isAuthenticated } = useAuth();
+  const { url, route } = useLocation();
 
-  const handleRoute = (e: { url: string }) => {
-    if (isAuthenticated && (e.url === "/login" || e.url === "/register")) {
+  useEffect(() => {
+    if (isAuthenticated && (url === "/login" || url === "/register")) {
       route("/dashboard", true);
-    } else if (!isAuthenticated && e.url.startsWith("/")) {
-      if (e.url !== "/login" && e.url !== "/register") {
-        route("/login", true);
-      }
+    } else if (!isAuthenticated && url !== "/login" && url !== "/register") {
+      route("/login", true);
     }
-  };
+  }, [url, isAuthenticated]);
 
   return (
-    <Router onChange={handleRoute}>
+    <Router>
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
-      <Route path="/dashboard" component={DashboardPage} default />
+      <Route path="/dashboard" component={DashboardPage} />
       <Route path="/subscriptions" component={SubscriptionsPage} />
       <Route path="/devices" component={DevicesPage} />
       <Route path="/activity" component={ActivityPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route default component={DashboardPage} />
     </Router>
   );
 }
@@ -38,7 +39,9 @@ function Routes() {
 export function App() {
   return (
     <AuthProvider>
-      <Routes />
+      <LocationProvider>
+        <Routes />
+      </LocationProvider>
     </AuthProvider>
   );
 }

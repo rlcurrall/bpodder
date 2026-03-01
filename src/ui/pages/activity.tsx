@@ -1,4 +1,4 @@
-import { route } from "preact-router";
+import { useLocation } from "preact-iso";
 import { useState, useEffect } from "preact/hooks";
 
 import type { EpisodeActionResponseType } from "../../lib/schemas";
@@ -36,6 +36,7 @@ function getActionBadgeClass(action: string): string {
 }
 
 export function ActivityPage() {
+  const { route } = useLocation();
   const { username } = useAuth();
   const [episodes, setEpisodes] = useState<EpisodeActionResponseType[]>([]);
   const [loading, setLoading] = useState(true);

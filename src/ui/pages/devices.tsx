@@ -1,4 +1,4 @@
-import { route } from "preact-router";
+import { useLocation } from "preact-iso";
 import { useState, useEffect } from "preact/hooks";
 
 import type { DeviceResponseType } from "../../lib/schemas";
@@ -15,6 +15,7 @@ import { useAuth } from "../lib/auth";
 const DEVICE_TYPES = ["desktop", "laptop", "mobile", "server", "other"] as const;
 
 export function DevicesPage() {
+  const { route } = useLocation();
   const { username } = useAuth();
   const [devices, setDevices] = useState<DeviceResponseType[]>([]);
   const [loading, setLoading] = useState(true);

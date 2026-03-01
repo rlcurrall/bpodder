@@ -1,4 +1,4 @@
-import { route } from "preact-router";
+import { useLocation } from "preact-iso";
 import { useState } from "preact/hooks";
 
 import { RegisterRequest } from "../../lib/schemas";
@@ -10,6 +10,7 @@ import { Text, TextLink } from "../components/text";
 import * as api from "../lib/api";
 
 export function RegisterPage() {
+  const { route } = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");

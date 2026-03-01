@@ -1,4 +1,4 @@
-import { route } from "preact-router";
+import { useLocation } from "preact-iso";
 
 import { useAuth } from "../lib/auth";
 import {
@@ -19,6 +19,7 @@ interface PageLayoutProps {
 }
 
 export function PageLayout({ children, currentPath, title }: PageLayoutProps) {
+  const { route } = useLocation();
   const { username, logout } = useAuth();
 
   const handleLogout = async () => {

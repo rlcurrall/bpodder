@@ -1,4 +1,4 @@
-import { route } from "preact-router";
+import { useLocation } from "preact-iso";
 import { useState, useEffect } from "preact/hooks";
 
 import { Button } from "../components/button";
@@ -10,6 +10,7 @@ import * as api from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export function LoginPage() {
+  const { route } = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

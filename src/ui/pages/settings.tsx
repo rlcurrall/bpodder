@@ -1,4 +1,4 @@
-import { route } from "preact-router";
+import { useLocation } from "preact-iso";
 import { useState, useEffect } from "preact/hooks";
 
 import type { SettingsResponseType } from "../../lib/schemas";
@@ -12,6 +12,7 @@ import * as api from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export function SettingsPage() {
+  const { route } = useLocation();
   const { username } = useAuth();
   const [settings, setSettings] = useState<SettingsResponseType>({});
   const [loading, setLoading] = useState(true);

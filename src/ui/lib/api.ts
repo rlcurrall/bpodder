@@ -17,7 +17,7 @@ const API_BASE = "";
 
 function handleUnauthorized() {
   localStorage.removeItem("username");
-  window.location.hash = "#/login";
+  window.location.href = "/login";
 }
 
 async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
