@@ -133,12 +133,12 @@ export default createRouteHandlerMap((ctx) => ({
         );
 
         if (!user) {
-          return unauthorized("Invalid username or password");
+          return unauthorized("Invalid username or password", { challenge: false });
         }
 
         const verified = await Bun.password.verify(password, user.password);
         if (!verified) {
-          return unauthorized("Invalid username or password");
+          return unauthorized("Invalid username or password", { challenge: false });
         }
 
         // Create session

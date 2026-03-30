@@ -4,6 +4,10 @@ import { z } from "zod/v4";
 // All response helpers include CORS header per GPodder API spec
 export const CORS = { "Access-Control-Allow-Origin": "*" };
 
+interface ErrorOptions {
+  challenge?: boolean;
+}
+
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -15,11 +19,17 @@ export function empty(status = 200): Response {
   return new Response("", { status, headers: CORS });
 }
 
-export function error(message: string | z.ZodError, status: number = 500): Response {
+export function error(
+  message: string | z.ZodError,
+  status: number = 500,
+  options: ErrorOptions = {},
+): Response {
   if (message instanceof z.ZodError) {
     const firstIssue = message.issues.at(0)?.message ?? "Validation failed";
     return error(firstIssue, 400);
   }
+
+  const shouldChallenge = options.challenge ?? status === 401;
 
   // Validate error response format
   const body = ErrorResponse.parse({ code: status, message });
@@ -29,7 +39,7 @@ export function error(message: string | z.ZodError, status: number = 500): Respo
     headers: {
       "Content-Type": "application/json",
       ...CORS,
-      ...(status === 401 ? { "WWW-Authenticate": 'Basic realm="bpodder"' } : {}),
+      ...(shouldChallenge ? { "WWW-Authenticate": 'Basic realm="bpodder"' } : {}),
     },
   });
 }
@@ -90,8 +100,8 @@ export function badRequest(message?: string | z.ZodError): Response {
   return error(message ?? "Bad request", 400);
 }
 
-export function unauthorized(message?: string): Response {
-  return error(message ?? "Unauthorized", 401);
+export function unauthorized(message?: string, options?: ErrorOptions): Response {
+  return error(message ?? "Unauthorized", 401, options);
 }
 
 export function forbidden(message?: string): Response {
