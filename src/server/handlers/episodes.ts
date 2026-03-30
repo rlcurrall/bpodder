@@ -24,7 +24,7 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
     async GET(req) {
       const rawUsername = req.params.username;
-      const { value: username } = parseParam(rawUsername);
+      const { value: username } = parseParam(rawUsername, ["json"]);
 
       if (!username) {
         return notFound("Invalid route");
@@ -164,7 +164,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async POST(req) {
       const rawUsername = req.params.username;
-      const { value: username } = parseParam(rawUsername);
+      const { value: username } = parseParam(rawUsername, ["json"]);
 
       if (!username) {
         return notFound("Invalid route");

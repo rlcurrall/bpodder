@@ -24,8 +24,8 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username);
-        const { value: scopeRaw } = parseParam(req.params.scope);
+        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: scopeRaw } = parseParam(req.params.scope, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username === "current") {
@@ -54,8 +54,8 @@ export default createRouteHandlerMap((ctx) => ({
 
     async POST(req) {
       try {
-        const { value: username } = parseParam(req.params.username);
-        const { value: scopeRaw } = parseParam(req.params.scope);
+        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: scopeRaw } = parseParam(req.params.scope, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username === "current") {

@@ -26,7 +26,7 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username);
+        const { value: username } = parseParam(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username === "current") {
@@ -55,8 +55,8 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
     async POST(req) {
       try {
-        const { value: username } = parseParam(req.params.username);
-        const { value: deviceid } = parseParam(req.params.deviceid);
+        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: deviceid } = parseParam(req.params.deviceid, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username !== "current" && username !== user.name) {
