@@ -1,5 +1,4 @@
-import type { EpisodeActionResponseType } from "../../shared/schemas";
-
+import { Button } from "../components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/card";
 import { PageLayout } from "../components/page-layout";
 import { Text } from "../components/text";
@@ -33,10 +32,22 @@ function getActionBadgeClass(action: string): string {
 
 export function ActivityPage() {
   const {
-    data: episodes = [] as EpisodeActionResponseType[],
+    data: episodes = [],
     isPending,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
     error,
+    totalCount,
   } = useEpisodeActions();
+
+  // Format the count display
+  const formatCount = () => {
+    if (totalCount !== null) {
+      return `${episodes.length} of ${totalCount}`;
+    }
+    return String(episodes.length);
+  };
 
   if (isPending) {
     return (
@@ -56,7 +67,7 @@ export function ActivityPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Episode Actions ({episodes.length})</CardTitle>
+          <CardTitle>Episode Actions ({formatCount()})</CardTitle>
         </CardHeader>
         <CardContent>
           {episodes.length === 0 ? (
@@ -87,45 +98,64 @@ export function ActivityPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {episodes.map((ep, i) => (
-                    <tr
-                      key={i}
-                      class="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0"
-                    >
-                      <td
-                        class="py-2 px-2 text-zinc-700 dark:text-zinc-300 truncate max-w-xs"
-                        title={ep.podcast}
+                  {episodes.map(
+                    (ep: {
+                      id: number;
+                      podcast: string;
+                      episode: string;
+                      action: string;
+                      timestamp: string;
+                      device?: string;
+                      position?: number;
+                    }) => (
+                      <tr
+                        key={ep.id}
+                        class="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0"
                       >
-                        {ep.podcast.replace(/^https?:\/\//, "").slice(0, 40)}
-                      </td>
-                      <td
-                        class="py-2 px-2 text-zinc-700 dark:text-zinc-300 truncate max-w-xs"
-                        title={ep.episode}
-                      >
-                        {ep.episode.split("/").pop()?.slice(0, 40) || ep.episode.slice(0, 40)}
-                      </td>
-                      <td class="py-2 px-2">
-                        <span
-                          class={`inline-block px-2 py-1 rounded-full text-xs font-medium text-white uppercase ${getActionBadgeClass(
-                            ep.action,
-                          )}`}
+                        <td
+                          class="py-2 px-2 text-zinc-700 dark:text-zinc-300 truncate max-w-xs"
+                          title={ep.podcast}
                         >
-                          {ep.action}
-                        </span>
-                      </td>
-                      <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400 hidden sm:table-cell">
-                        {ep.device || "-"}
-                      </td>
-                      <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400 hidden md:table-cell">
-                        {formatDuration(ep.position)}
-                      </td>
-                      <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400 text-right text-xs">
-                        {formatTimestamp(ep.timestamp)}
-                      </td>
-                    </tr>
-                  ))}
+                          {ep.podcast.replace(/^https?:\/\//, "").slice(0, 40)}
+                        </td>
+                        <td
+                          class="py-2 px-2 text-zinc-700 dark:text-zinc-300 truncate max-w-xs"
+                          title={ep.episode}
+                        >
+                          {ep.episode.split("/").pop()?.slice(0, 40) || ep.episode.slice(0, 40)}
+                        </td>
+                        <td class="py-2 px-2">
+                          <span
+                            class={`inline-block px-2 py-1 rounded-full text-xs font-medium text-white uppercase ${getActionBadgeClass(
+                              ep.action,
+                            )}`}
+                          >
+                            {ep.action}
+                          </span>
+                        </td>
+                        <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400 hidden sm:table-cell">
+                          {ep.device || "-"}
+                        </td>
+                        <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400 hidden md:table-cell">
+                          {formatDuration(ep.position)}
+                        </td>
+                        <td class="py-2 px-2 text-zinc-600 dark:text-zinc-400 text-right text-xs">
+                          {formatTimestamp(ep.timestamp)}
+                        </td>
+                      </tr>
+                    ),
+                  )}
                 </tbody>
               </table>
+
+              {/* Load more button */}
+              {hasNextPage && (
+                <div class="mt-4 text-center">
+                  <Button onClick={() => fetchNextPage()} disabled={isFetchingNextPage} outline>
+                    {isFetchingNextPage ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

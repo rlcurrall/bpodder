@@ -1,4 +1,5 @@
 import { requireAuth } from "@server/lib/auth";
+import { decodeCursor, CursorError } from "@server/lib/pagination";
 import { parseParam } from "@server/lib/params";
 import {
   badRequest,
@@ -9,11 +10,17 @@ import {
   serverError,
 } from "@server/lib/response";
 import { createRouteHandlerMap } from "@server/lib/routing";
+import { listEpisodeActionsPaginated } from "@server/services/episodes";
+import { getUserSummary } from "@server/services/summary";
 import {
   EpisodeActionResponseType,
   EpisodeListResponse,
   EpisodeUploadResponse,
   EpisodeUploadRequest,
+  PaginatedQuerySchema,
+  PaginatedResponseSchema,
+  EpisodeActionWithId,
+  SummaryResponse,
 } from "@shared/schemas/index";
 import { z } from "zod/v4";
 
@@ -325,6 +332,90 @@ export default createRouteHandlerMap((ctx) => ({
           return badRequest(e);
         }
         ctx.logger.error({ err: e }, "Episodes handler error");
+        return serverError("Server error");
+      }
+    },
+  },
+
+  // b-ext: paginated episode actions for web UI
+  "/api/b-ext/episodes/:username": {
+    OPTIONS: options(["GET", "OPTIONS"]),
+
+    async GET(req) {
+      try {
+        const { value: username } = parseParam(req.params.username, ["json"]);
+        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+
+        const url = new URL(req.url);
+        const queryResult = PaginatedQuerySchema.safeParse({
+          limit: url.searchParams.get("limit") ?? undefined,
+          cursor: url.searchParams.get("cursor") ?? undefined,
+        });
+
+        if (!queryResult.success) {
+          return badRequest(queryResult.error);
+        }
+
+        const { limit, cursor: cursorParam } = queryResult.data;
+
+        let cursor = null;
+        if (cursorParam) {
+          try {
+            cursor = decodeCursor(cursorParam);
+          } catch (e) {
+            if (e instanceof CursorError) {
+              return badRequest(e.message);
+            }
+            throw e;
+          }
+        }
+
+        // Optional filters
+        const podcast = url.searchParams.get("podcast") ?? undefined;
+        const device = url.searchParams.get("device") ?? undefined;
+        const action = url.searchParams.get("action") ?? undefined;
+
+        const result = await listEpisodeActionsPaginated(ctx.db, {
+          userId: user.id,
+          limit,
+          cursor,
+          podcast,
+          device,
+          action,
+        });
+
+        const response = PaginatedResponseSchema(EpisodeActionWithId).parse(result);
+        return ok(response);
+      } catch (e) {
+        if (e instanceof Response) return e;
+        if (e instanceof z.ZodError) {
+          return badRequest(e);
+        }
+        ctx.logger.error({ err: e }, "b-ext episodes handler error");
+        return serverError("Server error");
+      }
+    },
+  },
+
+  // b-ext: summary endpoint for dashboard
+  "/api/b-ext/summary/:username": {
+    OPTIONS: options(["GET", "OPTIONS"]),
+
+    async GET(req) {
+      try {
+        const { value: username } = parseParam(req.params.username, ["json"]);
+        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+
+        const result = await getUserSummary(ctx.db, user.id);
+
+        const response = SummaryResponse.parse(result);
+        return ok(response);
+      } catch (e) {
+        if (e instanceof Response) return e;
+        if (e instanceof z.ZodError) {
+          return badRequest(e);
+        }
+        ctx.logger.error({ err: e }, "b-ext summary handler error");
         return serverError("Server error");
       }
     },

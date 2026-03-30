@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 
 import type { SubscriptionItem } from "../hooks/use-subscriptions";
 
@@ -24,22 +24,60 @@ function extractHostname(url: string): string {
 
 export function SubscriptionsPage() {
   const { username } = useAuth();
-  const [newUrl, setNewUrl] = useState("");
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [urlToRemove, setUrlToRemove] = useState<string | null>(null);
 
+  // Add dialog state
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [addUrl, setAddUrl] = useState("");
+  const [addDeviceId, setAddDeviceId] = useState<string>("");
+
   const { data: devices = [] } = useDevices();
-  const { data: subscriptions = [], isPending, error } = useSubscriptions(selectedDeviceId);
+  const {
+    data: subscriptions = [],
+    isPending,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    error,
+    totalCount,
+  } = useSubscriptions(selectedDeviceId, searchQuery ? { q: searchQuery } : undefined);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
 
   const subscribeMutation = useSubscribe();
   const unsubscribeMutation = useUnsubscribe();
 
-  const handleAdd = (e: Event) => {
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+  const itemToRemove = subscriptions.find((s: SubscriptionItem) => s.url === urlToRemove);
+  const opmlHref = getOpmlUrl(username!, selectedDeviceId ?? undefined);
+
+  // Prefill add dialog device when opening
+  const openAddDialog = () => {
+    setAddDeviceId(selectedDeviceId ?? "");
+    setAddUrl("");
+    setIsAddDialogOpen(true);
+  };
+
+  const handleAddSubmit = (e: Event) => {
     e.preventDefault();
-    if (!newUrl.trim() || !selectedDeviceId) return;
+    if (!addUrl.trim() || !addDeviceId) return;
     subscribeMutation.mutate(
-      { url: newUrl.trim(), deviceId: selectedDeviceId },
-      { onSuccess: () => setNewUrl("") },
+      { url: addUrl.trim(), deviceId: addDeviceId },
+      {
+        onSuccess: () => {
+          setAddUrl("");
+          setIsAddDialogOpen(false);
+        },
+      },
     );
   };
 
@@ -51,97 +89,79 @@ export function SubscriptionsPage() {
     );
   };
 
-  if (isPending) {
-    return (
-      <PageLayout currentPath="/subscriptions" title="Subscriptions">
-        <div class="text-center text-zinc-500 dark:text-zinc-400">Loading...</div>
-      </PageLayout>
-    );
-  }
+  // Format the count display
+  const formatCount = () => {
+    if (totalCount !== null) {
+      return `${subscriptions.length} of ${totalCount}`;
+    }
+    return String(subscriptions.length);
+  };
 
   const mutationError = subscribeMutation.error || unsubscribeMutation.error;
-  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
-  const itemToRemove = subscriptions.find((s: SubscriptionItem) => s.url === urlToRemove);
 
   return (
     <PageLayout currentPath="/subscriptions" title="Subscriptions">
-      {(error || mutationError) && (
+      {mutationError && (
         <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-500 text-red-600 dark:text-red-400 px-4 py-3 rounded mb-4">
-          {error
-            ? "Failed to load subscriptions"
-            : subscribeMutation.error
-              ? "Failed to subscribe"
-              : "Failed to unsubscribe"}
+          {subscribeMutation.error ? "Failed to subscribe" : "Failed to unsubscribe"}
         </div>
       )}
 
-      <div class="flex items-center gap-3 mb-6">
-        <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 shrink-0">Device</label>
-        <Select
-          value={selectedDeviceId ?? ""}
-          onChange={(e) => {
-            const val = (e.target as HTMLSelectElement).value;
-            setSelectedDeviceId(val || null);
-          }}
-          class="w-56"
-        >
-          <option value="">All devices</option>
-          {devices.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.caption || d.id}
-            </option>
-          ))}
-        </Select>
-        {!selectedDeviceId && (
-          <span class="text-sm text-zinc-500 dark:text-zinc-400">
-            Select a device to subscribe or unsubscribe
-          </span>
-        )}
-      </div>
-
-      <Card class="mb-6">
-        <CardHeader>
-          <CardTitle>Subscribe to a new podcast</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAdd} class="flex gap-3">
-            <Input
-              type="url"
-              placeholder="https://example.com/feed.xml"
-              value={newUrl}
-              onInput={(e) => setNewUrl((e.target as HTMLInputElement).value)}
-              class="flex-1"
-              required
-              disabled={!selectedDeviceId}
-            />
-            <Button type="submit" disabled={!selectedDeviceId || subscribeMutation.isPending}>
-              {subscribeMutation.isPending ? "Adding..." : "Subscribe"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
       <Card>
-        <CardHeader class="flex justify-between items-center">
-          <CardTitle>
-            {selectedDevice
-              ? `${selectedDevice.caption || selectedDevice.id} (${subscriptions.length})`
-              : `All Subscriptions (${subscriptions.length})`}
-          </CardTitle>
-          <TextLink
-            href={getOpmlUrl(username!, selectedDeviceId ?? undefined)}
-            class="text-sm"
-            download={
-              selectedDevice
-                ? `${username}-${selectedDevice.id}-subscriptions.opml`
-                : `${username}-subscriptions.opml`
-            }
-          >
-            Download OPML
-          </TextLink>
+        <CardHeader class="flex flex-col gap-4">
+          {/* Title row */}
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <CardTitle>
+              {selectedDevice
+                ? `${selectedDevice.caption || selectedDevice.id} (${formatCount()})`
+                : `All Subscriptions (${formatCount()})`}
+            </CardTitle>
+            <div class="flex items-center gap-2">
+              <Button color="blue" onClick={openAddDialog}>
+                Add
+              </Button>
+              <Button href={opmlHref} download outline>
+                Export
+              </Button>
+            </div>
+          </div>
+
+          {/* Filter toolbar */}
+          <div class="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-3">
+            <div class="w-full">
+              <Select
+                value={selectedDeviceId ?? ""}
+                onChange={(e) => {
+                  const val = (e.target as HTMLSelectElement).value;
+                  setSelectedDeviceId(val || null);
+                }}
+                aria-label="Device"
+              >
+                <option value="">All devices</option>
+                {devices.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.caption || d.id}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Input
+              type="search"
+              placeholder="Search subscriptions..."
+              value={searchInput}
+              onInput={(e) => setSearchInput((e.target as HTMLInputElement).value)}
+            />
+          </div>
         </CardHeader>
+
         <CardContent>
-          {subscriptions.length === 0 ? (
+          {error ? (
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/50 dark:bg-red-900/20 dark:text-red-300">
+              {error.message || "Failed to load subscriptions"}
+            </div>
+          ) : isPending && subscriptions.length === 0 ? (
+            <Text>Loading...</Text>
+          ) : subscriptions.length === 0 ? (
             <Text>No podcast subscriptions yet.</Text>
           ) : (
             <div class="overflow-x-auto">
@@ -211,11 +231,83 @@ export function SubscriptionsPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Load more button */}
+              {hasNextPage && (
+                <div class="mt-4 text-center">
+                  <Button onClick={() => fetchNextPage()} disabled={isFetchingNextPage} outline>
+                    {isFetchingNextPage ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Add Dialog */}
+      <Dialog open={isAddDialogOpen} onClose={() => setIsAddDialogOpen(false)}>
+        <DialogBackdrop />
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+          <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <DialogPanel class="relative overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6 dark:bg-zinc-800 dark:outline dark:-outline-offset-1 dark:outline-white/10">
+              <DialogTitle class="text-base font-semibold text-zinc-900 dark:text-white mb-4">
+                Add Podcast Subscription
+              </DialogTitle>
+              <form onSubmit={handleAddSubmit} class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    Feed URL
+                  </label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/feed.xml"
+                    value={addUrl}
+                    onInput={(e) => setAddUrl((e.target as HTMLInputElement).value)}
+                    data-autofocus
+                    required
+                    class="w-full"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    Device
+                  </label>
+                  <Select
+                    value={addDeviceId}
+                    onChange={(e) => {
+                      setAddDeviceId((e.target as HTMLSelectElement).value);
+                    }}
+                    class="w-full"
+                    required
+                  >
+                    <option value="">Select a device</option>
+                    {devices.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.caption || d.id}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                  <Button
+                    color="blue"
+                    type="submit"
+                    disabled={!addUrl.trim() || !addDeviceId || subscribeMutation.isPending}
+                  >
+                    {subscribeMutation.isPending ? "Adding..." : "Add"}
+                  </Button>
+                  <Button outline onClick={() => setIsAddDialogOpen(false)} type="button">
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Unsubscribe Confirmation Dialog */}
       <Dialog open={urlToRemove !== null} onClose={() => setUrlToRemove(null)}>
         <DialogBackdrop />
         <div class="fixed inset-0 z-10 w-screen overflow-y-auto">

@@ -2,6 +2,7 @@ import { requireAuth } from "@server/lib/auth";
 import { backgroundFetchFeed } from "@server/lib/feed-fetcher";
 import { parseOPML } from "@server/lib/opml";
 import { parseParam } from "@server/lib/params";
+import { getFirstSearchParam } from "@server/lib/query";
 import {
   opml,
   options,
@@ -13,14 +14,22 @@ import {
   notFound,
 } from "@server/lib/response";
 import { createRouteHandlerMap } from "@server/lib/routing";
+import { decodeSubscriptionCursor } from "@server/lib/subscription-pagination";
 import {
-  SubscriptionSyncRequest,
+  listSubscriptionsPaginated,
+  SubscriptionCursorError,
+} from "@server/services/subscriptions";
+import {
+  SubscriptionItem,
   SubscriptionReplaceRequest,
+  SubscriptionSyncRequest,
   SubscriptionDeltaResponse,
   SubscriptionUploadResponse,
   SubscriptionListResponse,
+  SubscriptionListQuerySchema,
   isHttpUrl,
 } from "@shared/schemas/index";
+import { PaginatedResponseSchema } from "@shared/schemas/pagination";
 import { z } from "zod/v4";
 
 export default createRouteHandlerMap((ctx) => ({
@@ -369,7 +378,7 @@ export default createRouteHandlerMap((ctx) => ({
       }
     },
   },
-  // b-ext: enriched subscriptions for web UI
+  // b-ext: enriched subscriptions for web UI (paginated)
   "/api/b-ext/subscriptions/:username": {
     OPTIONS: options(["GET", "OPTIONS"]),
 
@@ -378,15 +387,44 @@ export default createRouteHandlerMap((ctx) => ({
         const { value: username } = parseParam(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        const subs = ctx.db.all<{ url: string; title: string | null; image_url: string | null }>(
-          `SELECT DISTINCT s.url, f.title, f.image_url
-           FROM subscriptions s
-           LEFT JOIN feeds f ON s.feed = f.id
-           WHERE s.user = ? AND s.deleted = 0`,
-          user.id,
-        );
+        const url = new URL(req.url);
+        const queryResult = SubscriptionListQuerySchema.safeParse({
+          limit: url.searchParams.get("limit") ?? undefined,
+          cursor: url.searchParams.get("cursor") ?? undefined,
+          q: url.searchParams.get("q") ?? undefined,
+          sortBy: getFirstSearchParam(url.searchParams, "sort.by", "sort[by]"),
+          sortDir: getFirstSearchParam(url.searchParams, "sort.dir", "sort[dir]"),
+        });
 
-        return ok(subs);
+        if (!queryResult.success) {
+          return badRequest(queryResult.error);
+        }
+
+        const { limit, cursor: cursorParam, q, sortBy, sortDir } = queryResult.data;
+
+        let cursor = null;
+        if (cursorParam) {
+          try {
+            cursor = decodeSubscriptionCursor(cursorParam, sortBy, sortDir);
+          } catch (e) {
+            if (e instanceof SubscriptionCursorError) {
+              return badRequest(e.message);
+            }
+            throw e;
+          }
+        }
+
+        const result = await listSubscriptionsPaginated(ctx.db, {
+          userId: user.id,
+          limit,
+          cursor,
+          q,
+          sortBy,
+          sortDir,
+        });
+
+        const response = PaginatedResponseSchema(SubscriptionItem).parse(result);
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "b-ext subscriptions handler error");
@@ -404,25 +442,52 @@ export default createRouteHandlerMap((ctx) => ({
         const { value: deviceid } = parseParam(req.params.deviceid, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        const device = ctx.db.first<{ id: number }>(
-          "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
-          user.id,
-          deviceid,
-        );
+        const device = ctx.db.first<{
+          id: number;
+        }>("SELECT id FROM devices WHERE user = ? AND deviceid = ?", user.id, deviceid);
         if (!device) {
           return notFound("Device not found");
         }
 
-        const subs = ctx.db.all<{ url: string; title: string | null; image_url: string | null }>(
-          `SELECT s.url, f.title, f.image_url
-           FROM subscriptions s
-           LEFT JOIN feeds f ON s.feed = f.id
-           WHERE s.user = ? AND s.device = ? AND s.deleted = 0`,
-          user.id,
-          device.id,
-        );
+        const url = new URL(req.url);
+        const queryResult = SubscriptionListQuerySchema.safeParse({
+          limit: url.searchParams.get("limit") ?? undefined,
+          cursor: url.searchParams.get("cursor") ?? undefined,
+          q: url.searchParams.get("q") ?? undefined,
+          sortBy: getFirstSearchParam(url.searchParams, "sort.by", "sort[by]"),
+          sortDir: getFirstSearchParam(url.searchParams, "sort.dir", "sort[dir]"),
+        });
 
-        return ok(subs);
+        if (!queryResult.success) {
+          return badRequest(queryResult.error);
+        }
+
+        const { limit, cursor: cursorParam, q, sortBy, sortDir } = queryResult.data;
+
+        let cursor = null;
+        if (cursorParam) {
+          try {
+            cursor = decodeSubscriptionCursor(cursorParam, sortBy, sortDir);
+          } catch (e) {
+            if (e instanceof SubscriptionCursorError) {
+              return badRequest(e.message);
+            }
+            throw e;
+          }
+        }
+
+        const result = await listSubscriptionsPaginated(ctx.db, {
+          userId: user.id,
+          deviceId: device.id,
+          limit,
+          cursor,
+          q,
+          sortBy,
+          sortDir,
+        });
+
+        const response = PaginatedResponseSchema(SubscriptionItem).parse(result);
+        return ok(response);
       } catch (e) {
         if (e instanceof Response) return e;
         ctx.logger.error({ err: e }, "b-ext device subscriptions handler error");

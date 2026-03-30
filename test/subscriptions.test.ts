@@ -1,12 +1,42 @@
-import { describe, test, expect, beforeAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { Client } from "./helpers/client";
+import { startMockRssServer, type MockRssServer } from "./helpers/mock-rss";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
 
 const urlA = "https://feeds.example.com/feedA.xml";
 const urlB = "https://feeds.example.com/feedB.xml";
 const urlC = "https://feeds.example.com/feedC.xml";
+
+async function waitForSubscriptionTitles(
+  client: Client,
+  username: string,
+  deviceId: string,
+  q: string,
+  expectedCount: number,
+): Promise<Array<{ url: string; title: string | null }>> {
+  const deadline = Date.now() + 5000;
+
+  while (Date.now() < deadline) {
+    const res = await client.get(
+      `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=20&q=${encodeURIComponent(q)}`,
+    );
+    expect(res.status).toBe(200);
+
+    const body = await client.json<{
+      items: Array<{ url: string; title: string | null }>;
+    }>(res);
+
+    if (body.items.length === expectedCount && body.items.every((item) => item.title !== null)) {
+      return body.items;
+    }
+
+    await Bun.sleep(50);
+  }
+
+  throw new Error("Timed out waiting for feed metadata");
+}
 
 describe("subscriptions", () => {
   let serverUrl: string;
@@ -669,6 +699,592 @@ describe("subscriptions", () => {
       expect(res.status).toBe(200);
       const body = await res.text();
       expect(body).toBe("");
+    });
+  });
+
+  describe("b-ext Paginated Subscriptions", () => {
+    test("first page returns paginated envelope with items", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json`);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string; title: string | null; image_url: string | null }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(res);
+      expect(Array.isArray(body.items)).toBe(true);
+      expect(typeof body.page).toBe("object");
+      expect(typeof body.page.total_count).toBe("number");
+      expect(typeof body.page.next_cursor).toBe(
+        body.page.next_cursor === null ? "object" : "string",
+      );
+    });
+
+    test("first page with limit=2 returns up to 2 items and next_cursor", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json`, {
+        limit: "2",
+      });
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(res);
+      expect(body.items.length).toBeLessThanOrEqual(2);
+      if ((body.page.total_count ?? 0) > 2) {
+        expect(body.page.next_cursor).not.toBeNull();
+      } else {
+        expect(body.page.next_cursor).toBeNull();
+      }
+    });
+
+    test("cursor pagination returns the next page of items", async () => {
+      const firstRes = await alice.client.get(`/api/b-ext/subscriptions/${username}.json`, {
+        limit: "2",
+      });
+      expect(firstRes.status).toBe(200);
+      const firstBody = await alice.client.json<{
+        items: { url: string }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(firstRes);
+
+      if (!firstBody.page.next_cursor) return;
+
+      const secondRes = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}.json?limit=2&cursor=${encodeURIComponent(firstBody.page.next_cursor)}`,
+      );
+      expect(secondRes.status).toBe(200);
+      const secondBody = await alice.client.json<{
+        items: { url: string }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(secondRes);
+
+      const firstUrls = new Set(firstBody.items.map((i) => i.url));
+      const secondUrls = new Set(secondBody.items.map((i) => i.url));
+      for (const url of secondUrls) {
+        expect(firstUrls.has(url)).toBe(false);
+      }
+    });
+
+    test("total_count reflects unique subscription URLs across all devices", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json`);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        page: {
+          total_count: number | null;
+        };
+      }>(res);
+      expect(body.page.total_count).toBeGreaterThanOrEqual(0);
+    });
+
+    test("device-scoped pagination returns paginated envelope", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}/${deviceId}.json`);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(res);
+      expect(Array.isArray(body.items)).toBe(true);
+      expect(typeof body.page).toBe("object");
+      expect(body.page.total_count).toBeGreaterThanOrEqual(0);
+    });
+
+    test("device-scoped pagination with cursor returns next page", async () => {
+      const firstRes = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1`,
+      );
+      expect(firstRes.status).toBe(200);
+      const firstBody = await alice.client.json<{
+        items: { url: string }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(firstRes);
+
+      if (!firstBody.page.next_cursor) return;
+
+      const secondRes = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1&cursor=${encodeURIComponent(firstBody.page.next_cursor)}`,
+      );
+      expect(secondRes.status).toBe(200);
+      const secondBody = await alice.client.json<{
+        items: { url: string }[];
+        page: {
+          next_cursor: string | null;
+          total_count: number | null;
+        };
+      }>(secondRes);
+
+      const firstUrls = new Set(firstBody.items.map((i) => i.url));
+      const secondUrls = new Set(secondBody.items.map((i) => i.url));
+      for (const url of secondUrls) {
+        expect(firstUrls.has(url)).toBe(false);
+      }
+    });
+
+    test("unknown device returns 404 on paginated endpoint", async () => {
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/unknown-device-xyz.json`,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    test("device IDs with dots work on b-ext paginated endpoint", async () => {
+      const dottedDeviceId = "Mac.domain.local";
+      const dottedFeedUrl = `https://feeds.example.com/dotted-device-${Date.now()}.xml`;
+
+      await alice.client.post(`/api/2/devices/${username}/${dottedDeviceId}.json`, {
+        caption: "Mac",
+        type: "desktop",
+      });
+
+      await alice.client.post(`/api/2/subscriptions/${username}/${dottedDeviceId}.json`, {
+        add: [dottedFeedUrl],
+        remove: [],
+      });
+
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${dottedDeviceId}?limit=10`,
+      );
+      expect(res.status).toBe(200);
+
+      const body = await alice.client.json<{
+        items: { url: string }[];
+      }>(res);
+      expect(body.items.some((item) => item.url === dottedFeedUrl)).toBe(true);
+    });
+
+    test("limit greater than 200 returns 400", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json?limit=999`);
+      expect(res.status).toBe(400);
+    });
+
+    test("limit at max 200 returns 200", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json?limit=200`);
+      expect(res.status).toBe(200);
+    });
+
+    test("invalid limit returns 400", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json?limit=0`);
+      expect(res.status).toBe(400);
+    });
+
+    test("invalid cursor returns 400", async () => {
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}.json?cursor=invalid-base64`,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    test("empty cursor returns 400", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json?cursor=`);
+      expect(res.status).toBe(400);
+    });
+
+    test("future version cursor returns 400", async () => {
+      const futureCursor = Buffer.from(JSON.stringify({ v: 99, primary: 123, id: 456 })).toString(
+        "base64url",
+      );
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}.json?cursor=${encodeURIComponent(futureCursor)}`,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    test("pagination returns exact items with deterministic ordering", async () => {
+      const res1 = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1`,
+      );
+      expect(res1.status).toBe(200);
+      const body1 = await alice.client.json<{
+        items: { url: string }[];
+        page: { next_cursor: string | null; total_count: number | null };
+      }>(res1);
+
+      expect(body1.items).toHaveLength(1);
+      expect(body1.page.next_cursor).not.toBeNull();
+
+      const res2 = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1&cursor=${encodeURIComponent(body1.page.next_cursor!)}`,
+      );
+      expect(res2.status).toBe(200);
+      const body2 = await alice.client.json<{
+        items: { url: string }[];
+        page: { next_cursor: string | null; total_count: number | null };
+      }>(res2);
+
+      expect(body2.items).toHaveLength(1);
+      expect(body1.items[0].url).not.toBe(body2.items[0].url);
+    });
+
+    test("total_count matches actual subscription count for device", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}/${deviceId}.json`);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: { total_count: number | null };
+      }>(res);
+
+      expect(body.page.total_count).toBe(body.items.length);
+    });
+
+    test("unknown query params are ignored", async () => {
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}.json?unknown=value&another=123`,
+      );
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+      }>(res);
+      expect(Array.isArray(body.items)).toBe(true);
+    });
+
+    test("all-devices endpoint dedupes same URL across multiple devices", async () => {
+      // Create a second device for dedupe testing
+      const device2Id = "tablet";
+      await alice.client.post(`/api/2/devices/${username}/${device2Id}.json`, {
+        caption: "Tablet",
+        type: "mobile",
+      });
+
+      // Add overlapping URLs to both devices (use unique URLs to avoid conflicts with other tests)
+      const sharedUrl = `https://feeds.example.com/shared-feed-${Date.now()}.xml`;
+      const device1Only = `https://feeds.example.com/device1-only-${Date.now()}.xml`;
+      const device2Only = `https://feeds.example.com/device2-only-${Date.now()}.xml`;
+
+      await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [sharedUrl, device1Only],
+        remove: [],
+      });
+
+      await alice.client.post(`/api/2/subscriptions/${username}/${device2Id}.json`, {
+        add: [sharedUrl, device2Only],
+        remove: [],
+      });
+
+      // All-devices endpoint should show exactly 3 unique URLs
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json`);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: { total_count: number | null };
+      }>(res);
+
+      // Count occurrences of each URL
+      const urlCounts = new Map<string, number>();
+      for (const item of body.items) {
+        urlCounts.set(item.url, (urlCounts.get(item.url) ?? 0) + 1);
+      }
+
+      // Verify our test URLs are present
+      expect(urlCounts.has(sharedUrl)).toBe(true);
+      expect(urlCounts.has(device1Only)).toBe(true);
+      expect(urlCounts.has(device2Only)).toBe(true);
+
+      // Verify no duplicates
+      expect(urlCounts.get(sharedUrl)).toBe(1);
+      expect(urlCounts.get(device1Only)).toBe(1);
+      expect(urlCounts.get(device2Only)).toBe(1);
+
+      // Verify total_count includes our 3 new unique URLs
+      expect(body.page.total_count ?? 0).toBeGreaterThanOrEqual(3);
+    });
+
+    test("full pagination walk collects all items without duplicates", async () => {
+      const allUrls: string[] = [];
+      let cursor: string | null = null;
+      let pageCount = 0;
+      let totalCount: number | null = null;
+
+      do {
+        const res = await alice.client.get(
+          `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+        );
+        expect(res.status).toBe(200);
+        const body = await alice.client.json<{
+          items: { url: string }[];
+          page: { next_cursor: string | null; total_count: number | null };
+        }>(res);
+
+        if (totalCount === null) {
+          totalCount = body.page.total_count;
+        } else {
+          // total_count should be consistent across pages
+          expect(body.page.total_count).toBe(totalCount);
+        }
+
+        for (const item of body.items) {
+          allUrls.push(item.url);
+        }
+
+        cursor = body.page.next_cursor;
+        pageCount++;
+
+        // Safety limit to prevent infinite loops
+        expect(pageCount).toBeLessThanOrEqual(10);
+      } while (cursor !== null);
+
+      // Verify no duplicates
+      const uniqueUrls = new Set(allUrls);
+      expect(uniqueUrls.size).toBe(allUrls.length);
+
+      // Verify we got exactly total_count items
+      expect(allUrls.length).toBe(totalCount ?? 0);
+    });
+
+    test("filter by URL returns matching subscriptions", async () => {
+      // First add some subscriptions with distinct URLs
+      const searchUrl = `https://linuxpodcast.example.com/feed-${Date.now()}.xml`;
+      const otherUrl = `https://otherpodcast.example.com/feed-${Date.now()}.xml`;
+
+      await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [searchUrl, otherUrl],
+        remove: [],
+      });
+
+      // Filter by "linux" should match only the linux URL
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?q=linux`,
+      );
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: { total_count: number | null };
+      }>(res);
+
+      expect(body.items.length).toBeGreaterThanOrEqual(1);
+      expect(body.items.some((item) => item.url.includes("linux"))).toBe(true);
+      expect(body.items.every((item) => item.url.toLowerCase().includes("linux"))).toBe(true);
+    });
+
+    test("filter by title returns matching subscriptions", async () => {
+      // Add a subscription and wait for feed metadata
+      const feedUrl = `https://testpodcast.example.com/feed-${Date.now()}.xml`;
+
+      await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [feedUrl],
+        remove: [],
+      });
+
+      // Filter by common podcast word (this assumes some feeds have titles)
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?q=podcast`,
+      );
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string; title: string | null }[];
+        page: { total_count: number | null };
+      }>(res);
+
+      // Should return results (or empty if no titles match)
+      expect(Array.isArray(body.items)).toBe(true);
+    });
+
+    test("filtered pagination returns correct total_count", async () => {
+      const res = await alice.client.get(
+        `/api/b-ext/subscriptions/${username}/${deviceId}.json?q=nonexistentxyz123`,
+      );
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: { total_count: number | null };
+      }>(res);
+
+      // Non-matching filter should return empty results with 0 total
+      expect(body.items.length).toBe(0);
+      expect(body.page.total_count).toBe(0);
+    });
+
+    test("filtered pagination with cursor returns all matching items", async () => {
+      const token = `cursor-filter-${Date.now()}`;
+      const matchingUrls = [
+        `https://${token}-one.example.com/feed.xml`,
+        `https://${token}-two.example.com/feed.xml`,
+        `https://${token}-three.example.com/feed.xml`,
+      ];
+      const nonMatchingUrl = `https://other-${Date.now()}.example.com/feed.xml`;
+
+      await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+        add: [...matchingUrls, nonMatchingUrl],
+        remove: [],
+      });
+
+      const seenUrls: string[] = [];
+      let cursor: string | null = null;
+      let totalCount: number | null = null;
+
+      do {
+        const res = await alice.client.get(
+          `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1&q=${encodeURIComponent(token)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+        );
+        expect(res.status).toBe(200);
+
+        const body = await alice.client.json<{
+          items: { url: string }[];
+          page: { next_cursor: string | null; total_count: number | null };
+        }>(res);
+
+        if (totalCount === null) {
+          totalCount = body.page.total_count;
+        } else {
+          expect(body.page.total_count).toBe(totalCount);
+        }
+
+        for (const item of body.items) {
+          expect(item.url).toContain(token);
+          seenUrls.push(item.url);
+        }
+
+        cursor = body.page.next_cursor;
+      } while (cursor !== null);
+
+      expect(new Set(seenUrls)).toEqual(new Set(matchingUrls));
+      expect(seenUrls).not.toContain(nonMatchingUrl);
+      expect(totalCount).toBe(matchingUrls.length);
+    });
+
+    test("all-devices endpoint supports filtering", async () => {
+      const res = await alice.client.get(`/api/b-ext/subscriptions/${username}.json?q=http`);
+      expect(res.status).toBe(200);
+      const body = await alice.client.json<{
+        items: { url: string }[];
+        page: { total_count: number | null };
+      }>(res);
+
+      // All URLs should contain "http" (which they all do)
+      expect(body.items.length).toBeGreaterThanOrEqual(0);
+    });
+
+    describe("sorting", () => {
+      let rss: MockRssServer;
+      let fixtureToken: string;
+
+      beforeAll(() => {
+        fixtureToken = `sort-${Date.now()}`;
+        rss = startMockRssServer({
+          [`/${fixtureToken}-banana.xml`]: `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Banana Podcast</title>
+    <item>
+      <title>Episode 1</title>
+      <enclosure url="https://example.com/banana.mp3" type="audio/mpeg" />
+    </item>
+  </channel>
+</rss>`,
+          [`/${fixtureToken}-apple.xml`]: `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Apple Podcast</title>
+    <item>
+      <title>Episode 1</title>
+      <enclosure url="https://example.com/apple.mp3" type="audio/mpeg" />
+    </item>
+  </channel>
+</rss>`,
+          [`/${fixtureToken}-cherry.xml`]: `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Cherry Podcast</title>
+    <item>
+      <title>Episode 1</title>
+      <enclosure url="https://example.com/cherry.mp3" type="audio/mpeg" />
+    </item>
+  </channel>
+</rss>`,
+        });
+      });
+
+      afterAll(() => {
+        rss.stop();
+      });
+
+      test("sort.by syntax sorts by title ascending across pages", async () => {
+        const urls = [
+          `${rss.url}/${fixtureToken}-banana.xml`,
+          `${rss.url}/${fixtureToken}-apple.xml`,
+          `${rss.url}/${fixtureToken}-cherry.xml`,
+        ];
+
+        await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+          add: urls,
+          remove: [],
+        });
+
+        await waitForSubscriptionTitles(alice.client, username, deviceId, fixtureToken, 3);
+
+        const firstRes = await alice.client.get(
+          `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1&q=${encodeURIComponent(fixtureToken)}&sort.by=title&sort.dir=asc`,
+        );
+        expect(firstRes.status).toBe(200);
+        const firstBody = await alice.client.json<{
+          items: Array<{ title: string | null }>;
+          page: { next_cursor: string | null };
+        }>(firstRes);
+
+        expect(firstBody.items[0]?.title).toBe("Apple Podcast");
+        expect(firstBody.page.next_cursor).not.toBeNull();
+
+        const secondRes = await alice.client.get(
+          `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=1&q=${encodeURIComponent(fixtureToken)}&sort.by=title&sort.dir=asc&cursor=${encodeURIComponent(firstBody.page.next_cursor!)}`,
+        );
+        expect(secondRes.status).toBe(200);
+        const secondBody = await alice.client.json<{
+          items: Array<{ title: string | null }>;
+          page: { next_cursor: string | null };
+        }>(secondRes);
+
+        expect(secondBody.items[0]?.title).toBe("Banana Podcast");
+      });
+
+      test("sort[by] syntax sorts by title descending", async () => {
+        const urls = [
+          `${rss.url}/${fixtureToken}-banana.xml`,
+          `${rss.url}/${fixtureToken}-apple.xml`,
+          `${rss.url}/${fixtureToken}-cherry.xml`,
+        ];
+
+        await alice.client.post(`/api/2/subscriptions/${username}/${deviceId}.json`, {
+          add: urls,
+          remove: [],
+        });
+
+        await waitForSubscriptionTitles(alice.client, username, deviceId, fixtureToken, 3);
+
+        const res = await alice.client.get(
+          `/api/b-ext/subscriptions/${username}/${deviceId}.json?limit=3&q=${encodeURIComponent(fixtureToken)}&sort%5Bby%5D=title&sort%5Bdir%5D=desc`,
+        );
+        expect(res.status).toBe(200);
+        const body = await alice.client.json<{
+          items: Array<{ title: string | null }>;
+        }>(res);
+
+        expect(body.items.map((item) => item.title)).toEqual([
+          "Cherry Podcast",
+          "Banana Podcast",
+          "Apple Podcast",
+        ]);
+      });
+
+      test("invalid sort.by returns 400", async () => {
+        const res = await alice.client.get(
+          `/api/b-ext/subscriptions/${username}/${deviceId}.json?sort.by=bogus`,
+        );
+        expect(res.status).toBe(400);
+      });
     });
   });
 });

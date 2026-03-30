@@ -81,6 +81,8 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       "/api/b-ext/subscriptions/:username/:deviceid": loggingMiddleware(
         subscriptions["/api/b-ext/subscriptions/:username/:deviceid"],
       ),
+      "/api/b-ext/episodes/:username": loggingMiddleware(episodes["/api/b-ext/episodes/:username"]),
+      "/api/b-ext/summary/:username": loggingMiddleware(episodes["/api/b-ext/summary/:username"]),
 
       // Web app routes - all serve the same homepage, client-side routing will handle the rest
       "/": homepage,

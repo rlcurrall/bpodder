@@ -75,6 +75,12 @@ export const EpisodeUploadRequest = z.union([
   }),
 ]);
 
+// Extended episode action schema for paginated b-ext endpoint (includes stable id)
+export const EpisodeActionWithId = EpisodeActionResponse.extend({
+  id: z.number(),
+});
+
+export type EpisodeActionWithIdType = z.infer<typeof EpisodeActionWithId>;
 export type EpisodeActionResponseType = z.infer<typeof EpisodeActionResponse>;
 export type EpisodeListResponseType = z.infer<typeof EpisodeListResponse>;
 export type EpisodeUploadResponseType = z.infer<typeof EpisodeUploadResponse>;

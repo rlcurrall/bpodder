@@ -39,19 +39,37 @@ export {
   SubscriptionDeltaResponse,
   SubscriptionUploadResponse,
   SubscriptionListResponse,
+  SubscriptionItem,
+  SubscriptionSortBySchema,
+  SubscriptionSortDirSchema,
+  RawSubscriptionCursorSchema,
+  SubscriptionListQuerySchema,
 } from "./subscriptions";
-export type { SubscriptionSyncRequestType, SubscriptionReplaceRequestType } from "./subscriptions";
+export type {
+  SubscriptionSyncRequestType,
+  SubscriptionReplaceRequestType,
+  SubscriptionItemType,
+  SubscriptionListQueryType,
+  SubscriptionSortByType,
+  SubscriptionSortDirType,
+  SubscriptionCursorType,
+} from "./subscriptions";
+
+export { PaginatedQuerySchema, PaginatedResponseSchema } from "./pagination";
+export type { PaginatedQueryType, PaginatedResponseType } from "./pagination";
 
 export {
   EpisodeActionRequest,
   EpisodeListRequest,
   EpisodeActionResponse,
+  EpisodeActionWithId,
   EpisodeListResponse,
   EpisodeUploadResponse,
   EpisodeUploadRequest,
 } from "./episodes";
 export type {
   EpisodeActionResponseType,
+  EpisodeActionWithIdType,
   EpisodeListResponseType,
   EpisodeUploadResponseType,
   EpisodeUploadRequestType,
@@ -59,3 +77,6 @@ export type {
 
 export { SettingsUpdateRequest, SettingsResponse, validScopes } from "./settings";
 export type { SettingsResponseType, SettingsUpdateRequestType, Scope } from "./settings";
+
+export { SummaryResponse } from "./summary";
+export type { SummaryResponseType } from "./summary";
