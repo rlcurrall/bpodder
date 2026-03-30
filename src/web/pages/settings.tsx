@@ -1,23 +1,54 @@
+import { useMutation } from "@tanstack/preact-query";
 import { useState } from "preact/hooks";
 
 import type { SettingsResponseType } from "../../shared/schemas";
 
 import { Button } from "../components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/card";
+import { ErrorMessage, Field, Label } from "../components/fieldset";
 import { Input } from "../components/input";
 import { PageLayout } from "../components/page-layout";
-import { TextLink } from "../components/text";
 import { useSettings } from "../hooks/use-settings";
+import { changePassword, deleteAccount } from "../lib/api/auth";
 import { useAuth } from "../lib/auth";
 
 export function SettingsPage() {
-  const { username } = useAuth();
+  const { username, logout } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  const syncUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/${encodeURIComponent(username || "")}`
-      : "";
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMatchError, setPasswordMatchError] = useState<string | null>(null);
+
+  const changePasswordMutation = useMutation({
+    mutationFn: () => changePassword(currentPassword, newPassword),
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMatchError(null);
+    },
+  });
+
+  const handleChangePassword = (e: Event) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPasswordMatchError("Passwords do not match");
+      return;
+    }
+    setPasswordMatchError(null);
+    changePasswordMutation.mutate();
+  };
+
+  const [deletePassword, setDeletePassword] = useState("");
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: () => deleteAccount(deletePassword),
+    onSuccess: () => logout(),
+  });
+
+  const syncUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   const { data: settings = {} as SettingsResponseType, isPending } = useSettings();
 
@@ -111,32 +142,90 @@ export function SettingsPage() {
           </Card>
         )}
 
-        {/* Help */}
+        {/* Change Password */}
         <Card>
           <CardHeader>
-            <CardTitle>Help</CardTitle>
+            <CardTitle>Change Password</CardTitle>
           </CardHeader>
           <CardContent>
-            <div class="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-              <p>
-                <TextLink
-                  href="https://gpodder.github.io/docs/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  GPodder Documentation
-                </TextLink>
-              </p>
-              <p>
-                <TextLink
-                  href="https://gpodder.github.io/docs/client-software.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Supported Podcast Apps
-                </TextLink>
-              </p>
-            </div>
+            <form onSubmit={handleChangePassword} class="space-y-4">
+              <Field>
+                <Label for="current-password">Current password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onInput={(e) => setCurrentPassword((e.target as HTMLInputElement).value)}
+                  required
+                />
+              </Field>
+              <Field>
+                <Label for="new-password">New password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onInput={(e) => setNewPassword((e.target as HTMLInputElement).value)}
+                  required
+                />
+              </Field>
+              <Field>
+                <Label for="confirm-password">Confirm new password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onInput={(e) => setConfirmPassword((e.target as HTMLInputElement).value)}
+                  required
+                />
+              </Field>
+              {passwordMatchError && <ErrorMessage>{passwordMatchError}</ErrorMessage>}
+              {changePasswordMutation.error && (
+                <ErrorMessage>{changePasswordMutation.error.message}</ErrorMessage>
+              )}
+              {changePasswordMutation.isSuccess && (
+                <p class="text-sm text-emerald-600 dark:text-emerald-400">Password changed.</p>
+              )}
+              <Button type="submit" disabled={changePasswordMutation.isPending}>
+                {changePasswordMutation.isPending ? "Saving…" : "Change password"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Delete Account */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Delete Account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+              This will permanently delete your account and all data.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                deleteAccountMutation.mutate();
+              }}
+              class="space-y-4"
+            >
+              <Field>
+                <Label for="delete-password">Confirm your password</Label>
+                <Input
+                  id="delete-password"
+                  type="password"
+                  value={deletePassword}
+                  onInput={(e) => setDeletePassword((e.target as HTMLInputElement).value)}
+                  required
+                />
+              </Field>
+              {deleteAccountMutation.error && (
+                <ErrorMessage>{deleteAccountMutation.error.message}</ErrorMessage>
+              )}
+              <Button color="red" type="submit" disabled={deleteAccountMutation.isPending}>
+                {deleteAccountMutation.isPending ? "Deleting…" : "Delete account"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>

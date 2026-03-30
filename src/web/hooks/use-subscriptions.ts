@@ -7,12 +7,14 @@ import {
 } from "../lib/api/subscriptions";
 import { useAuth } from "../lib/auth";
 
-export function useSubscriptions() {
+export type { SubscriptionItem } from "../lib/api/subscriptions";
+
+export function useSubscriptions(deviceId?: string | null) {
   const { username } = useAuth();
 
   return useQuery({
-    queryKey: ["subscriptions", username],
-    queryFn: () => getSubscriptions(username!),
+    queryKey: ["subscriptions", username, deviceId ?? "all"],
+    queryFn: () => getSubscriptions(username!, deviceId ?? undefined),
     enabled: !!username,
   });
 }
@@ -22,9 +24,11 @@ export function useSubscribe() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (url: string) => subscribeToPodcast(username!, url),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["subscriptions", username] });
+    mutationFn: ({ url, deviceId }: { url: string; deviceId: string }) =>
+      subscribeToPodcast(username!, deviceId, url),
+    onSuccess: (_data, { deviceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions", username, deviceId] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions", username, "all"] });
     },
   });
 }
@@ -34,9 +38,11 @@ export function useUnsubscribe() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (url: string) => unsubscribeFromPodcast(username!, url),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["subscriptions", username] });
+    mutationFn: ({ url, deviceId }: { url: string; deviceId: string }) =>
+      unsubscribeFromPodcast(username!, deviceId, url),
+    onSuccess: (_data, { deviceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions", username, deviceId] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions", username, "all"] });
     },
   });
 }

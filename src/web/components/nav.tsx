@@ -1,4 +1,5 @@
-import { useUiConfig } from "../hooks/use-ui-config";
+import { useUiConfig } from "@web/hooks/use-ui-config";
+
 import { Navbar, NavbarItem, NavbarLabel, NavbarSection, NavbarSpacer } from "./navbar";
 
 interface NavProps {

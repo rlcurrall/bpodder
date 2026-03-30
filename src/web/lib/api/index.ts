@@ -13,3 +13,4 @@ export {
   subscribeToPodcast,
   unsubscribeFromPodcast,
 } from "./subscriptions";
+export type { SubscriptionItem } from "./subscriptions";

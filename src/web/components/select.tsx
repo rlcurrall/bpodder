@@ -1,6 +1,6 @@
 import type { ComponentChildren, SelectHTMLAttributes } from "preact";
 
-import { clsx } from "../lib/utils.js";
+import { clsx } from "@web/lib/utils.js";
 
 type SelectProps = Omit<SelectHTMLAttributes, "class" | "multiple"> & {
   class?: string;

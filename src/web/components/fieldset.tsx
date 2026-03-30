@@ -1,6 +1,6 @@
 import type { ComponentChildren, HTMLAttributes, LabelHTMLAttributes } from "preact";
 
-import { clsx } from "../lib/utils.js";
+import { clsx } from "@web/lib/utils.js";
 
 export function Fieldset({
   class: className,

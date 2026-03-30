@@ -1,3 +1,14 @@
+import { requireAuth } from "@server/lib/auth";
+import { parseParam } from "@server/lib/params";
+import {
+  badRequest,
+  options,
+  methodNotAllowed,
+  notFound,
+  ok,
+  serverError,
+} from "@server/lib/response";
+import { createRouteHandlerMap } from "@server/lib/routing";
 import {
   EpisodeActionResponseType,
   EpisodeListResponse,
@@ -5,11 +16,6 @@ import {
   EpisodeUploadRequest,
 } from "@shared/schemas/index";
 import { z } from "zod/v4";
-
-import { requireAuth } from "../lib/auth";
-import { parseParam } from "../lib/params";
-import { badRequest, options, methodNotAllowed, notFound, ok, serverError } from "../lib/response";
-import { createRouteHandlerMap } from "../lib/routing";
 
 export default createRouteHandlerMap((ctx) => ({
   "/api/2/episodes/:username": {

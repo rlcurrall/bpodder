@@ -1,14 +1,20 @@
+import { requireAuth } from "@server/lib/auth";
+import { parseParam } from "@server/lib/params";
+import {
+  options,
+  methodNotAllowed,
+  ok,
+  forbidden,
+  serverError,
+  badRequest,
+} from "@server/lib/response";
+import { createRouteHandlerMap } from "@server/lib/routing";
 import {
   DeviceUpdateRequest,
   DeviceListResponse,
   DeviceResponseType,
   SuccessResponse,
 } from "@shared/schemas/index";
-
-import { requireAuth } from "../lib/auth";
-import { parseParam } from "../lib/params";
-import { options, methodNotAllowed, ok, forbidden, serverError, badRequest } from "../lib/response";
-import { createRouteHandlerMap } from "../lib/routing";
 
 const validDeviceId = /^[\w.-]+$/;
 

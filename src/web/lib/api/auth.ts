@@ -27,6 +27,30 @@ export interface RegisterResult {
   error?: string;
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/api/b-ext/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { message?: string })?.message ?? "Failed to change password");
+  }
+}
+
+export async function deleteAccount(password: string): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/api/b-ext/delete-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { message?: string })?.message ?? "Failed to delete account");
+  }
+}
+
 export async function register(
   username: string,
   password: string,

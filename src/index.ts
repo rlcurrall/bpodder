@@ -3,8 +3,10 @@ import { serve } from "bun";
 
 import { createDB } from "./server/db";
 import createAuthHandlers from "./server/handlers/auth";
+import createConfigHandlers from "./server/handlers/config";
 import createDeviceHandlers from "./server/handlers/devices";
 import createEpisodeHandlers from "./server/handlers/episodes";
+import createHealthHandlers from "./server/handlers/health";
 import createSettingsHandlers from "./server/handlers/settings";
 import createSubscriptionHandlers from "./server/handlers/subscriptions";
 import createSyncHandlers from "./server/handlers/sync";
@@ -27,12 +29,13 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   };
 
   const auth = createAuthHandlers(ctx);
+  const config = createConfigHandlers(ctx);
   const devices = createDeviceHandlers(ctx);
+  const health = createHealthHandlers(ctx);
   const subscriptions = createSubscriptionHandlers(ctx);
   const episodes = createEpisodeHandlers(ctx);
   const settings = createSettingsHandlers(ctx);
   const sync = createSyncHandlers(ctx);
-  const defaultHandler = createDefaultHandler(ctx);
   const loggingMiddleware = createLoggingMiddleware(ctx);
 
   const server = serve({
@@ -66,12 +69,20 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       ),
 
       // Health
-      "/health": loggingMiddleware(auth["/health"]),
+      "/health": loggingMiddleware(health["/health"]),
 
-      // UI Config
-      "/api/b-ext/config": loggingMiddleware(auth["/api/b-ext/config"]),
+      // bpodder extension APIs
+      "/api/b-ext/config": loggingMiddleware(config["/api/b-ext/config"]),
       "/api/b-ext/login": loggingMiddleware(auth["/api/b-ext/login"]),
       "/api/b-ext/register": loggingMiddleware(auth["/api/b-ext/register"]),
+      "/api/b-ext/subscriptions/:username": loggingMiddleware(
+        subscriptions["/api/b-ext/subscriptions/:username"],
+      ),
+      "/api/b-ext/subscriptions/:username/:deviceid": loggingMiddleware(
+        subscriptions["/api/b-ext/subscriptions/:username/:deviceid"],
+      ),
+
+      // Web app routes - all serve the same homepage, client-side routing will handle the rest
       "/": homepage,
       "/login": homepage,
       "/register": homepage,
@@ -82,7 +93,7 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
       "/settings": homepage,
     },
 
-    fetch: defaultHandler,
+    fetch: createDefaultHandler(ctx),
     error: (err) => {
       logger.error({ err }, "Unhandled error in request handler");
       return new Response("Internal Server Error", { status: 500 });

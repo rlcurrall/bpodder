@@ -1,34 +1,54 @@
 import { useState } from "preact/hooks";
 
+import type { SubscriptionItem } from "../hooks/use-subscriptions";
+
 import { Button } from "../components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/card";
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "../components/dialog";
 import { Input } from "../components/input";
 import { PageLayout } from "../components/page-layout";
+import { Select } from "../components/select";
 import { Text, TextLink } from "../components/text";
+import { useDevices } from "../hooks/use-devices";
 import { useSubscribe, useSubscriptions, useUnsubscribe } from "../hooks/use-subscriptions";
 import { getOpmlUrl } from "../lib/api/subscriptions";
 import { useAuth } from "../lib/auth";
 
+function extractHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url.replace(/^https?:\/\//, "");
+  }
+}
+
 export function SubscriptionsPage() {
   const { username } = useAuth();
   const [newUrl, setNewUrl] = useState("");
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [urlToRemove, setUrlToRemove] = useState<string | null>(null);
 
-  const { data: subscriptions = [], isPending, error } = useSubscriptions();
+  const { data: devices = [] } = useDevices();
+  const { data: subscriptions = [], isPending, error } = useSubscriptions(selectedDeviceId);
 
   const subscribeMutation = useSubscribe();
   const unsubscribeMutation = useUnsubscribe();
 
   const handleAdd = (e: Event) => {
     e.preventDefault();
-    if (!newUrl.trim()) return;
-    subscribeMutation.mutate(newUrl.trim(), {
-      onSuccess: () => setNewUrl(""),
-    });
+    if (!newUrl.trim() || !selectedDeviceId) return;
+    subscribeMutation.mutate(
+      { url: newUrl.trim(), deviceId: selectedDeviceId },
+      { onSuccess: () => setNewUrl("") },
+    );
   };
 
-  const handleRemove = (url: string) => {
-    if (!confirm("Unsubscribe from this podcast?")) return;
-    unsubscribeMutation.mutate(url);
+  const handleConfirmRemove = () => {
+    if (!urlToRemove || !selectedDeviceId) return;
+    unsubscribeMutation.mutate(
+      { url: urlToRemove, deviceId: selectedDeviceId },
+      { onSuccess: () => setUrlToRemove(null) },
+    );
   };
 
   if (isPending) {
@@ -40,6 +60,8 @@ export function SubscriptionsPage() {
   }
 
   const mutationError = subscribeMutation.error || unsubscribeMutation.error;
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+  const itemToRemove = subscriptions.find((s: SubscriptionItem) => s.url === urlToRemove);
 
   return (
     <PageLayout currentPath="/subscriptions" title="Subscriptions">
@@ -52,6 +74,30 @@ export function SubscriptionsPage() {
               : "Failed to unsubscribe"}
         </div>
       )}
+
+      <div class="flex items-center gap-3 mb-6">
+        <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300 shrink-0">Device</label>
+        <Select
+          value={selectedDeviceId ?? ""}
+          onChange={(e) => {
+            const val = (e.target as HTMLSelectElement).value;
+            setSelectedDeviceId(val || null);
+          }}
+          class="w-56"
+        >
+          <option value="">All devices</option>
+          {devices.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.caption || d.id}
+            </option>
+          ))}
+        </Select>
+        {!selectedDeviceId && (
+          <span class="text-sm text-zinc-500 dark:text-zinc-400">
+            Select a device to subscribe or unsubscribe
+          </span>
+        )}
+      </div>
 
       <Card class="mb-6">
         <CardHeader>
@@ -66,8 +112,9 @@ export function SubscriptionsPage() {
               onInput={(e) => setNewUrl((e.target as HTMLInputElement).value)}
               class="flex-1"
               required
+              disabled={!selectedDeviceId}
             />
-            <Button type="submit" disabled={subscribeMutation.isPending}>
+            <Button type="submit" disabled={!selectedDeviceId || subscribeMutation.isPending}>
               {subscribeMutation.isPending ? "Adding..." : "Subscribe"}
             </Button>
           </form>
@@ -76,11 +123,19 @@ export function SubscriptionsPage() {
 
       <Card>
         <CardHeader class="flex justify-between items-center">
-          <CardTitle>Your Subscriptions ({subscriptions.length})</CardTitle>
+          <CardTitle>
+            {selectedDevice
+              ? `${selectedDevice.caption || selectedDevice.id} (${subscriptions.length})`
+              : `All Subscriptions (${subscriptions.length})`}
+          </CardTitle>
           <TextLink
-            href={getOpmlUrl(username!)}
+            href={getOpmlUrl(username!, selectedDeviceId ?? undefined)}
             class="text-sm"
-            download={`${username}-subscriptions.opml`}
+            download={
+              selectedDevice
+                ? `${username}-${selectedDevice.id}-subscriptions.opml`
+                : `${username}-subscriptions.opml`
+            }
           >
             Download OPML
           </TextLink>
@@ -102,27 +157,52 @@ export function SubscriptionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {subscriptions.map((url) => (
+                  {subscriptions.map((sub: SubscriptionItem) => (
                     <tr
-                      key={url}
+                      key={sub.url}
                       class="border-b border-zinc-200 dark:border-zinc-700 last:border-b-0"
                     >
                       <td class="py-2 px-2">
-                        <TextLink
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="truncate block max-w-xs sm:max-w-md"
-                          title={url}
-                        >
-                          {url.replace(/^https?:\/\//, "")}
-                        </TextLink>
+                        <div class="flex items-center gap-2">
+                          {sub.image_url && (
+                            <img
+                              src={sub.image_url}
+                              alt=""
+                              width={24}
+                              height={24}
+                              loading="lazy"
+                              class="rounded shrink-0 object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          )}
+                          <div class="min-w-0">
+                            <TextLink
+                              href={sub.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="block font-medium truncate max-w-xs sm:max-w-md"
+                              title={sub.url}
+                            >
+                              {sub.title ?? extractHostname(sub.url)}
+                            </TextLink>
+                            {sub.title && (
+                              <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate block max-w-xs sm:max-w-md">
+                                {sub.url.replace(/^https?:\/\//, "")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td class="py-2 px-2 text-right">
                         <button
-                          onClick={() => handleRemove(url)}
-                          class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
-                          title="Unsubscribe"
+                          onClick={() => setUrlToRemove(sub.url)}
+                          disabled={!selectedDeviceId}
+                          class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={
+                            selectedDeviceId ? "Unsubscribe" : "Select a device to unsubscribe"
+                          }
                         >
                           Remove
                         </button>
@@ -135,6 +215,64 @@ export function SubscriptionsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={urlToRemove !== null} onClose={() => setUrlToRemove(null)}>
+        <DialogBackdrop />
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+          <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <DialogPanel class="relative overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6 dark:bg-zinc-800 dark:outline dark:-outline-offset-1 dark:outline-white/10">
+              <div class="sm:flex sm:items-start">
+                <div class="mx-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/10 sm:mx-0 sm:size-10">
+                  <svg
+                    class="size-6 text-red-600 dark:text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                    />
+                  </svg>
+                </div>
+                <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                  <DialogTitle class="text-base font-semibold text-zinc-900 dark:text-white">
+                    Unsubscribe from podcast
+                  </DialogTitle>
+                  <div class="mt-2">
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                      Remove{" "}
+                      <span class="font-medium text-zinc-700 dark:text-zinc-300 break-all">
+                        {itemToRemove?.title ?? urlToRemove?.replace(/^https?:\/\//, "")}
+                      </span>{" "}
+                      from{" "}
+                      <span class="font-medium text-zinc-700 dark:text-zinc-300">
+                        {selectedDevice?.caption || selectedDevice?.id}
+                      </span>
+                      ?
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                <Button
+                  color="red"
+                  onClick={handleConfirmRemove}
+                  disabled={unsubscribeMutation.isPending}
+                >
+                  {unsubscribeMutation.isPending ? "Removing..." : "Unsubscribe"}
+                </Button>
+                <Button outline autofocus onClick={() => setUrlToRemove(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
     </PageLayout>
   );
 }

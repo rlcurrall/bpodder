@@ -1,6 +1,6 @@
 import type { AnchorHTMLAttributes } from "preact";
 
-import { clsx } from "../lib/utils";
+import { clsx } from "@web/lib/utils";
 
 export function Link({
   children,

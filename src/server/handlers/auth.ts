@@ -1,4 +1,6 @@
 import {
+  ChangePasswordRequest,
+  DeleteAccountRequest,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
@@ -10,12 +12,12 @@ import { requireAuth, createSessionCookie, clearSessionCookie } from "../lib/aut
 import { parseParam } from "../lib/params";
 import {
   badRequest,
-  error,
   forbidden,
   methodNotAllowed,
   notFound,
   ok,
   options,
+  serverError,
   unauthorized,
 } from "../lib/response";
 import { createRouteHandlerMap } from "../lib/routing";
@@ -115,23 +117,6 @@ export default createRouteHandlerMap((ctx) => ({
     },
   },
 
-  "/health": async () => {
-    try {
-      ctx.db.first("SELECT 1");
-      return ok({ status: "ok" });
-    } catch (err) {
-      ctx.logger.error({ err }, "Health check error");
-      return error("Database unavailable", 503);
-    }
-  },
-
-  "/api/b-ext/config": async () => {
-    return ok({
-      title: ctx.config.title,
-      enableRegistration: ctx.config.enableRegistration,
-    });
-  },
-
   "/api/b-ext/login": {
     OPTIONS: options(["POST", "OPTIONS"]),
     GET: methodNotAllowed(),
@@ -212,6 +197,73 @@ export default createRouteHandlerMap((ctx) => ({
         }
         ctx.logger.error({ err: e }, "Registration handler error");
         return badRequest("Invalid request body");
+      }
+    },
+  },
+
+  "/api/b-ext/change-password": {
+    OPTIONS: options(["POST", "OPTIONS"]),
+    GET: methodNotAllowed(),
+    PUT: methodNotAllowed(),
+    DELETE: methodNotAllowed(),
+    async POST(req) {
+      try {
+        const user = await requireAuth(req, ctx.db, ctx.sessions);
+        const parseResult = ChangePasswordRequest.safeParse(await req.json());
+        if (!parseResult.success) {
+          return badRequest(parseResult.error);
+        }
+        const { currentPassword, newPassword } = parseResult.data;
+        const verified = await Bun.password.verify(currentPassword, user.password);
+        if (!verified) {
+          return badRequest("Current password is incorrect");
+        }
+        const hash = await Bun.password.hash(newPassword);
+        ctx.db.run("UPDATE users SET password = ? WHERE id = ?", hash, user.id);
+        return ok(SuccessResponse.parse({}));
+      } catch (e) {
+        if (e instanceof Response) return e;
+        ctx.logger.error({ err: e }, "Change password handler error");
+        return serverError();
+      }
+    },
+  },
+
+  "/api/b-ext/delete-account": {
+    OPTIONS: options(["POST", "OPTIONS"]),
+    GET: methodNotAllowed(),
+    PUT: methodNotAllowed(),
+    DELETE: methodNotAllowed(),
+    async POST(req) {
+      try {
+        const user = await requireAuth(req, ctx.db, ctx.sessions);
+        const parseResult = DeleteAccountRequest.safeParse(await req.json());
+        if (!parseResult.success) {
+          return badRequest(parseResult.error);
+        }
+        const { password } = parseResult.data;
+        const verified = await Bun.password.verify(password, user.password);
+        if (!verified) {
+          return badRequest("Password is incorrect");
+        }
+        const cookieHeader = req.headers.get("Cookie");
+        if (cookieHeader) {
+          const match = cookieHeader.match(/sessionid=([^;]+)/);
+          if (match) {
+            await ctx.sessions.delete(match[1]);
+          }
+        }
+        ctx.db.run("DELETE FROM users WHERE id = ?", user.id);
+        const isSecure = ctx.config.baseUrl.startsWith("https");
+        const headers = new Headers();
+        headers.set("Set-Cookie", clearSessionCookie(isSecure));
+        headers.set("Content-Type", "application/json");
+        headers.set("Access-Control-Allow-Origin", "*");
+        return new Response(JSON.stringify(SuccessResponse.parse({})), { status: 200, headers });
+      } catch (e) {
+        if (e instanceof Response) return e;
+        ctx.logger.error({ err: e }, "Delete account handler error");
+        return serverError();
       }
     },
   },

@@ -1,8 +1,8 @@
 import type { ComponentChildren } from "preact";
 
+import { clsx } from "@web/lib/utils.js";
 import { useState } from "preact/hooks";
 
-import { clsx } from "../lib/utils.js";
 import { NavbarItem } from "./navbar.js";
 
 function OpenMenuIcon() {

@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "preact";
 
-import { clsx } from "../lib/utils.js";
+import { clsx } from "@web/lib/utils.js";
 
 export function Divider({
   soft = false,

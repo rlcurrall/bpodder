@@ -10,12 +10,21 @@ export type UiConfigResponseType = z.infer<typeof UiConfigResponse>;
 export { isHttpUrl, ErrorResponse, SuccessResponse } from "./common";
 export type { ErrorType, SuccessType } from "./common";
 
-export { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from "./auth";
+export {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
+  ChangePasswordRequest,
+  DeleteAccountRequest,
+} from "./auth";
 export type {
   LoginRequestType,
   LoginResponseType,
   RegisterRequestType,
   RegisterResponseType,
+  ChangePasswordRequestType,
+  DeleteAccountRequestType,
 } from "./auth";
 
 export { DeviceUpdateRequest, DeviceResponse, DeviceListResponse } from "./devices";

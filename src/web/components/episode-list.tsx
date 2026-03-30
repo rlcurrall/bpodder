@@ -1,4 +1,4 @@
-import type { EpisodeAction } from "../lib/api/episodes";
+import type { EpisodeAction } from "@web/lib/api/episodes";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
 import { Text } from "./text";

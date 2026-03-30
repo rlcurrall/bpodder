@@ -1,6 +1,6 @@
+import { useAuth } from "@web/lib/auth";
 import { useLocation } from "preact-iso";
 
-import { useAuth } from "../lib/auth";
 import {
   Dropdown,
   DropdownButton,

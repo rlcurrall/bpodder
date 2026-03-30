@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/preact-query";
 
 import type { Device } from "../lib/api/devices";
 import type { EpisodeAction } from "../lib/api/episodes";
+import type { SubscriptionItem } from "../lib/api/subscriptions";
 
 import { getDevices } from "../lib/api/devices";
 import { getEpisodeActions } from "../lib/api/episodes";
@@ -23,7 +24,7 @@ export function useDashboard() {
       ]);
       return { devices, subscriptions, episodes: episodes.slice(0, 10) } as {
         devices: Device[];
-        subscriptions: string[];
+        subscriptions: SubscriptionItem[];
         episodes: EpisodeAction[];
       };
     },

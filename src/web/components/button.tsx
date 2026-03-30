@@ -1,6 +1,6 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ComponentChildren } from "preact";
 
-import { clsx } from "../lib/utils.js";
+import { clsx } from "@web/lib/utils.js";
 
 type ButtonProps = (
   | (ButtonHTMLAttributes & {

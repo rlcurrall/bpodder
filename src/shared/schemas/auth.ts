@@ -30,7 +30,18 @@ export const RegisterRequest = z
 
 export const RegisterResponse = z.union([SuccessResponse, ErrorResponse]);
 
+export const ChangePasswordRequest = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(1),
+});
+
+export const DeleteAccountRequest = z.object({
+  password: z.string().min(1),
+});
+
 export type LoginRequestType = z.infer<typeof LoginRequest>;
 export type RegisterRequestType = z.infer<typeof RegisterRequest>;
 export type LoginResponseType = z.infer<typeof LoginResponse>;
 export type RegisterResponseType = z.infer<typeof RegisterResponse>;
+export type ChangePasswordRequestType = z.infer<typeof ChangePasswordRequest>;
+export type DeleteAccountRequestType = z.infer<typeof DeleteAccountRequest>;

@@ -5,7 +5,8 @@ import type {
   ButtonHTMLAttributes,
 } from "preact";
 
-import { clsx } from "../lib/utils.js";
+import { clsx } from "@web/lib/utils.js";
+
 import { TouchTarget } from "./button.js";
 import { Link } from "./link.js";
 

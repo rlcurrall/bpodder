@@ -1,16 +1,7 @@
-import {
-  SubscriptionSyncRequest,
-  SubscriptionReplaceRequest,
-  SubscriptionDeltaResponse,
-  SubscriptionUploadResponse,
-  SubscriptionListResponse,
-  isHttpUrl,
-} from "@shared/schemas/index";
-import { z } from "zod/v4";
-
-import { requireAuth } from "../lib/auth";
-import { parseOPML } from "../lib/opml";
-import { parseParam } from "../lib/params";
+import { requireAuth } from "@server/lib/auth";
+import { backgroundFetchFeed } from "@server/lib/feed-fetcher";
+import { parseOPML } from "@server/lib/opml";
+import { parseParam } from "@server/lib/params";
 import {
   opml,
   options,
@@ -20,8 +11,17 @@ import {
   empty,
   badRequest,
   notFound,
-} from "../lib/response";
-import { createRouteHandlerMap } from "../lib/routing";
+} from "@server/lib/response";
+import { createRouteHandlerMap } from "@server/lib/routing";
+import {
+  SubscriptionSyncRequest,
+  SubscriptionReplaceRequest,
+  SubscriptionDeltaResponse,
+  SubscriptionUploadResponse,
+  SubscriptionListResponse,
+  isHttpUrl,
+} from "@shared/schemas/index";
+import { z } from "zod/v4";
 
 export default createRouteHandlerMap((ctx) => ({
   // V2 delta sync: GET|POST /api/2/subscriptions/:username/:deviceid
@@ -178,6 +178,13 @@ export default createRouteHandlerMap((ctx) => ({
             );
           }
         });
+
+        for (const u of addList) {
+          const sanitized = sanitizeUrl(u);
+          if (isHttpUrl(sanitized.url)) {
+            backgroundFetchFeed(ctx.db, ctx.logger, sanitized.url);
+          }
+        }
 
         const response = SubscriptionUploadResponse.parse({ timestamp, update_urls: updateUrls });
         return ok(response);
@@ -347,6 +354,10 @@ export default createRouteHandlerMap((ctx) => ({
         const timestamp = Math.floor(Date.now() / 1000);
         addSubscriptions(ctx, { userId: user.id, devicePk, urls, timestamp });
 
+        for (const url of urls) {
+          backgroundFetchFeed(ctx.db, ctx.logger, url);
+        }
+
         return empty(200);
       } catch (e) {
         if (e instanceof Response) return e;
@@ -358,40 +369,63 @@ export default createRouteHandlerMap((ctx) => ({
       }
     },
   },
-
-  // Legacy OPML export handler (routes still point here)
-  "/opml/:username/:deviceid": {
+  // b-ext: enriched subscriptions for web UI
+  "/api/b-ext/subscriptions/:username": {
     OPTIONS: options(["GET", "OPTIONS"]),
-    PUT: methodNotAllowed(),
-    POST: methodNotAllowed(),
-    DELETE: methodNotAllowed(),
 
     async GET(req) {
       try {
-        const rawUsername = req.params.username;
-        const rawDeviceid = req.params.deviceid;
-        const { value: username } = parseParam(rawUsername);
-        const { value: deviceid } = rawDeviceid ? parseParam(rawDeviceid) : { value: "" };
-
+        const { value: username } = parseParam(req.params.username);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        let devicePk: number | undefined;
-        if (deviceid) {
-          const device = ctx.db.first<{ id: number }>(
-            "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
-            user.id,
-            deviceid,
-          );
-          if (!device) {
-            return notFound("Device not found");
-          }
-          devicePk = device.id;
-        }
+        const subs = ctx.db.all<{ url: string; title: string | null; image_url: string | null }>(
+          `SELECT DISTINCT s.url, f.title, f.image_url
+           FROM subscriptions s
+           LEFT JOIN feeds f ON s.feed = f.id
+           WHERE s.user = ? AND s.deleted = 0`,
+          user.id,
+        );
 
-        return opml(buildOPML(ctx, { userId: user.id, devicePk }));
+        return ok(subs);
       } catch (e) {
         if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "OPML handler error");
+        ctx.logger.error({ err: e }, "b-ext subscriptions handler error");
+        return serverError("Server error");
+      }
+    },
+  },
+
+  "/api/b-ext/subscriptions/:username/:deviceid": {
+    OPTIONS: options(["GET", "OPTIONS"]),
+
+    async GET(req) {
+      try {
+        const { value: username } = parseParam(req.params.username);
+        const { value: deviceid } = parseParam(req.params.deviceid);
+        const user = await requireAuth(req, ctx.db, ctx.sessions, username);
+
+        const device = ctx.db.first<{ id: number }>(
+          "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
+          user.id,
+          deviceid,
+        );
+        if (!device) {
+          return notFound("Device not found");
+        }
+
+        const subs = ctx.db.all<{ url: string; title: string | null; image_url: string | null }>(
+          `SELECT s.url, f.title, f.image_url
+           FROM subscriptions s
+           LEFT JOIN feeds f ON s.feed = f.id
+           WHERE s.user = ? AND s.device = ? AND s.deleted = 0`,
+          user.id,
+          device.id,
+        );
+
+        return ok(subs);
+      } catch (e) {
+        if (e instanceof Response) return e;
+        ctx.logger.error({ err: e }, "b-ext device subscriptions handler error");
         return serverError("Server error");
       }
     },

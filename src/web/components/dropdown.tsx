@@ -1,11 +1,10 @@
 import type { Ref, RefObject } from "preact";
 import type { ComponentChildren } from "preact";
 
+import { clsx } from "@web/lib/utils";
 import { createContext } from "preact";
 import { forwardRef } from "preact/compat";
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
-
-import { clsx } from "../lib/utils";
 
 type DropdownState = "closed" | "opening" | "open" | "closing";
 
