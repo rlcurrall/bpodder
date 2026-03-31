@@ -11,10 +11,13 @@ bun run dev                    # Dev server (watch + debug logging)
 bun run build                  # Build all release binaries
 bun run build -- linux-x64     # Build single platform (linux-arm64, darwin)
 bun run lint                   # oxlint
+bun run typecheck              # tsgo compiler check
 bun run lint:fix               # oxlint --fix
 bun run fmt                    # oxfmt
 docker build -t bpodder .      # Build Docker image
 ```
+
+Run both `bun run lint` and `bun run typecheck` for full static checks. `oxlint` does not currently surface every compiler diagnostic that `tsgo` reports.
 
 ### Testing
 

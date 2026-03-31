@@ -123,6 +123,7 @@ The core sync functionality is fully implemented. The remaining GPodder API feat
 bun install
 bun run dev          # Start with hot reload and debug logging
 bun run lint         # Run linter
+bun run typecheck    # Run tsgo type checker
 bun run fmt          # Format code
 bun run build        # Build release binaries
 ```

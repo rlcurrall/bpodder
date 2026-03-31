@@ -9,11 +9,12 @@
     "dev": "LOG_LEVEL=debug ENABLE_REGISTRATION=true bun run --watch src/index.ts",
     "test": "bun test",
     "build": "bun run build.ts",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
     "update-feeds": "bun run src/index.ts --update-feeds",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "lint": "oxlint --type-aware --type-check",
-    "lint:fix": "oxlint --type-aware --type-check --fix",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "prepare": "husky"
   },
   "dependencies": {
@@ -29,11 +30,12 @@
   "devDependencies": {
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20260330.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "oxfmt": "^0.35.0",
-    "oxlint": "^1.50.0",
-    "oxlint-tsgolint": "^0.15.0"
+    "oxlint": "^1.57.0",
+    "oxlint-tsgolint": "^0.18.1"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
