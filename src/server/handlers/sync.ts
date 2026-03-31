@@ -1,13 +1,7 @@
 import { requireAuth } from "@server/lib/auth";
+import { getBody } from "@server/lib/body";
 import { stripExtension } from "@server/lib/params";
-import {
-  options,
-  methodNotAllowed,
-  ok,
-  badRequest,
-  forbidden,
-  serverError,
-} from "@server/lib/response";
+import { options, methodNotAllowed, ok, badRequest, forbidden } from "@server/lib/response";
 import { createRouteHandlerMap } from "@server/lib/routing";
 import { SyncRequest, SyncStatusResponse } from "@shared/schemas/index";
 
@@ -18,134 +12,115 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
 
     async GET(req) {
-      try {
-        const { value: username } = stripExtension(req.params.username, ["json"]);
-        const user = await requireAuth(req, ctx.db, ctx.sessions);
+      const { value: username } = stripExtension(req.params.username, ["json"]);
+      const user = await requireAuth(req, ctx.db, ctx.sessions);
 
-        if (username === "current") {
-          // Continue with current user
-        } else if (username !== user.name) {
-          return forbidden("Access denied");
-        }
-
-        const status = getSyncStatus(ctx, user.id);
-        return ok(SyncStatusResponse.parse(status));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "Get sync devices handler error");
-        return serverError("Server error");
+      if (username === "current") {
+        // Continue with current user
+      } else if (username !== user.name) {
+        return forbidden("Access denied");
       }
+
+      const status = getSyncStatus(ctx, user.id);
+      return ok(SyncStatusResponse.parse(status));
     },
 
     async POST(req) {
-      try {
-        const { value: username } = stripExtension(req.params.username, ["json"]);
-        const user = await requireAuth(req, ctx.db, ctx.sessions);
+      const { value: username } = stripExtension(req.params.username, ["json"]);
+      const user = await requireAuth(req, ctx.db, ctx.sessions);
 
-        if (username === "current") {
-          // Continue with current user
-        } else if (username !== user.name) {
-          return forbidden("Access denied");
-        }
+      if (username === "current") {
+        // Continue with current user
+      } else if (username !== user.name) {
+        return forbidden("Access denied");
+      }
 
-        const rawBody = await req.json().catch(() => ({}));
-        const parseResult = SyncRequest.safeParse(rawBody);
+      const { synchronize, "stop-synchronize": stopSync } = await getBody(req, SyncRequest);
 
-        if (!parseResult.success) {
-          return badRequest(parseResult.error);
-        }
-
-        const { synchronize, "stop-synchronize": stopSync } = parseResult.data;
-
-        // Collect all device IDs that need validation
-        const allDeviceIds = new Set<string>();
-        if (synchronize) {
-          for (const group of synchronize) {
-            for (const deviceId of group) {
-              allDeviceIds.add(deviceId);
-            }
-          }
-        }
-        if (stopSync) {
-          for (const deviceId of stopSync) {
+      // Collect all device IDs that need validation
+      const allDeviceIds = new Set<string>();
+      if (synchronize) {
+        for (const group of synchronize) {
+          for (const deviceId of group) {
             allDeviceIds.add(deviceId);
           }
         }
-
-        // Validate all devices exist before starting transaction
-        const validation = validateDevicesExist(ctx, user.id, Array.from(allDeviceIds));
-        if (!validation.valid) {
-          return badRequest(`Device not found: ${validation.missing}`);
+      }
+      if (stopSync) {
+        for (const deviceId of stopSync) {
+          allDeviceIds.add(deviceId);
         }
+      }
 
-        ctx.db.transaction(() => {
-          // Handle synchronize requests
-          if (synchronize && synchronize.length > 0) {
-            for (const deviceGroup of synchronize) {
-              if (deviceGroup.length === 0) continue;
+      // Validate all devices exist before starting transaction
+      const validation = validateDevicesExist(ctx, user.id, Array.from(allDeviceIds));
+      if (!validation.valid) {
+        return badRequest(`Device not found: ${validation.missing}`);
+      }
 
-              // Collect all existing sync groups from devices in this group
-              const existingGroups = new Set<string>();
-              for (const deviceId of deviceGroup) {
-                const device = ctx.db.first<{ sync_group: string | null }>(
-                  "SELECT sync_group FROM devices WHERE user = ? AND deviceid = ?",
-                  user.id,
-                  deviceId,
-                );
-                if (device?.sync_group) {
-                  existingGroups.add(device.sync_group);
-                }
-              }
+      ctx.db.transaction(() => {
+        // Handle synchronize requests
+        if (synchronize && synchronize.length > 0) {
+          for (const deviceGroup of synchronize) {
+            if (deviceGroup.length === 0) continue;
 
-              // Use first existing group or create new one
-              const syncGroup = existingGroups.values().next().value ?? crypto.randomUUID();
-
-              // Merge: update ALL devices in ANY of the existing groups to the chosen group
-              if (existingGroups.size > 1) {
-                for (const oldGroup of existingGroups) {
-                  if (oldGroup !== syncGroup) {
-                    ctx.db.run(
-                      "UPDATE devices SET sync_group = ? WHERE user = ? AND sync_group = ?",
-                      syncGroup,
-                      user.id,
-                      oldGroup,
-                    );
-                  }
-                }
-              }
-
-              // Update all devices in the requested group
-              for (const deviceId of deviceGroup) {
-                ctx.db.run(
-                  "UPDATE devices SET sync_group = ? WHERE user = ? AND deviceid = ?",
-                  syncGroup,
-                  user.id,
-                  deviceId,
-                );
+            // Collect all existing sync groups from devices in this group
+            const existingGroups = new Set<string>();
+            for (const deviceId of deviceGroup) {
+              const device = ctx.db.first<{ sync_group: string | null }>(
+                "SELECT sync_group FROM devices WHERE user = ? AND deviceid = ?",
+                user.id,
+                deviceId,
+              );
+              if (device?.sync_group) {
+                existingGroups.add(device.sync_group);
               }
             }
-          }
 
-          // Handle stop-synchronize requests
-          if (stopSync && stopSync.length > 0) {
-            // Remove sync_group from specified devices
-            for (const deviceId of stopSync) {
+            // Use first existing group or create new one
+            const syncGroup = existingGroups.values().next().value ?? crypto.randomUUID();
+
+            // Merge: update ALL devices in ANY of the existing groups to the chosen group
+            if (existingGroups.size > 1) {
+              for (const oldGroup of existingGroups) {
+                if (oldGroup !== syncGroup) {
+                  ctx.db.run(
+                    "UPDATE devices SET sync_group = ? WHERE user = ? AND sync_group = ?",
+                    syncGroup,
+                    user.id,
+                    oldGroup,
+                  );
+                }
+              }
+            }
+
+            // Update all devices in the requested group
+            for (const deviceId of deviceGroup) {
               ctx.db.run(
-                "UPDATE devices SET sync_group = NULL WHERE user = ? AND deviceid = ?",
+                "UPDATE devices SET sync_group = ? WHERE user = ? AND deviceid = ?",
+                syncGroup,
                 user.id,
                 deviceId,
               );
             }
           }
-        });
+        }
 
-        const status = getSyncStatus(ctx, user.id);
-        return ok(SyncStatusResponse.parse(status));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "Post sync devices handler error");
-        return serverError("Server error");
-      }
+        // Handle stop-synchronize requests
+        if (stopSync && stopSync.length > 0) {
+          // Remove sync_group from specified devices
+          for (const deviceId of stopSync) {
+            ctx.db.run(
+              "UPDATE devices SET sync_group = NULL WHERE user = ? AND deviceid = ?",
+              user.id,
+              deviceId,
+            );
+          }
+        }
+      });
+
+      const status = getSyncStatus(ctx, user.id);
+      return ok(SyncStatusResponse.parse(status));
     },
   },
 }));

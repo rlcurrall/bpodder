@@ -7,11 +7,8 @@ import type {
 
 import { isHttpUrl } from "@shared/schemas/index";
 
-import { encodeSubscriptionCursor, SubscriptionCursorError } from "../lib/subscription-pagination";
-
-export { SubscriptionCursorError };
-
-export class SubscriptionSyncValidationError extends Error {}
+import { AppError } from "../lib/errors";
+import { encodeSubscriptionCursor } from "../lib/subscription-pagination";
 
 export interface SubscriptionDeviceRow {
   id: number;
@@ -380,7 +377,7 @@ export function syncSubscriptionDelta(
   const addedUrls = new Set(addList);
   for (const url of removeList) {
     if (addedUrls.has(url)) {
-      throw new SubscriptionSyncValidationError("URL in both add and remove");
+      throw new AppError("subscriptions.url_in_both_add_and_remove");
     }
   }
 

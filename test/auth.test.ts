@@ -47,6 +47,17 @@ describe("auth", () => {
     expect(res.headers.get("WWW-Authenticate")).toBeNull();
   });
 
+  test("3c. POST b-ext login with malformed JSON returns 400", async () => {
+    const res = await fetch(`${serverUrl}/api/b-ext/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"username":"alice",',
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: 400, message: "Invalid request body" });
+  });
+
   test("4. POST login with no Authorization header", async () => {
     const client = new Client(serverUrl);
     const res = await client.post("/api/2/auth/alice/login.json");
@@ -202,5 +213,16 @@ describe("auth", () => {
 
     // Invalid session without Basic auth returns 401
     expect(res.status).toBe(401);
+  });
+
+  test("20. POST b-ext register with malformed JSON returns 400", async () => {
+    const res = await fetch(`${serverUrl}/api/b-ext/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"username":"broken",',
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: 400, message: "Invalid request body" });
   });
 });

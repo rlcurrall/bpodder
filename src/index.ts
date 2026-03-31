@@ -11,8 +11,10 @@ import createSettingsHandlers from "./server/handlers/settings";
 import createSubscriptionHandlers from "./server/handlers/subscriptions";
 import createSyncHandlers from "./server/handlers/sync";
 import { SessionStore } from "./server/lib/auth";
+import { toErrorResponse } from "./server/lib/errors";
 import { createLogger } from "./server/lib/logger";
 import { createDefaultHandler } from "./server/lib/routing";
+import { createErrorHandlingMiddleware } from "./server/middleware/error-middleware";
 import { createLoggingMiddleware } from "./server/middleware/logging-middleware";
 import homepage from "./web/index.html";
 
@@ -36,53 +38,54 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
   const episodes = createEpisodeHandlers(ctx);
   const settings = createSettingsHandlers(ctx);
   const sync = createSyncHandlers(ctx);
+  const errorHandlingMiddleware = createErrorHandlingMiddleware(ctx);
   const loggingMiddleware = createLoggingMiddleware(ctx);
+
+  // Compose middleware: logging wraps error handling
+  // Order matters: request enters logging first, error handling translates errors to Response,
+  // then logging logs the final status code
+  const wrap = <T extends string>(route: RouteDefinition<T>) =>
+    loggingMiddleware(errorHandlingMiddleware(route));
 
   const server = serve({
     port: cfg.port,
     development: process.env.NODE_ENV !== "production",
     routes: {
       // GPodder API v2
-      "/api/2/auth/:username/:action": loggingMiddleware(auth["/api/2/auth/:username/:action"]),
-      "/api/2/devices/:username": loggingMiddleware(devices["/api/2/devices/:username"]),
-      "/api/2/devices/:username/:deviceid": loggingMiddleware(
-        devices["/api/2/devices/:username/:deviceid"],
-      ),
-      "/api/2/subscriptions/:username/:deviceid": loggingMiddleware(
+      "/api/2/auth/:username/:action": wrap(auth["/api/2/auth/:username/:action"]),
+      "/api/2/devices/:username": wrap(devices["/api/2/devices/:username"]),
+      "/api/2/devices/:username/:deviceid": wrap(devices["/api/2/devices/:username/:deviceid"]),
+      "/api/2/subscriptions/:username/:deviceid": wrap(
         subscriptions["/api/2/subscriptions/:username/:deviceid"],
       ),
-      "/api/2/episodes/:username": loggingMiddleware(episodes["/api/2/episodes/:username"]),
-      "/api/2/settings/:username/:scope": loggingMiddleware(
-        settings["/api/2/settings/:username/:scope"],
-      ),
-      "/api/2/sync-devices/:username": loggingMiddleware(sync["/api/2/sync-devices/:username"]),
+      "/api/2/episodes/:username": wrap(episodes["/api/2/episodes/:username"]),
+      "/api/2/settings/:username/:scope": wrap(settings["/api/2/settings/:username/:scope"]),
+      "/api/2/sync-devices/:username": wrap(sync["/api/2/sync-devices/:username"]),
 
       // V2.11 all-devices subscription list (no deviceid)
-      "/api/2/subscriptions/:username": loggingMiddleware(
-        subscriptions["/api/2/subscriptions/:username"],
-      ),
+      "/api/2/subscriptions/:username": wrap(subscriptions["/api/2/subscriptions/:username"]),
 
       // Simple API - single handler
-      "/subscriptions/:username": loggingMiddleware(subscriptions["/subscriptions/:username"]),
-      "/subscriptions/:username/:deviceid": loggingMiddleware(
+      "/subscriptions/:username": wrap(subscriptions["/subscriptions/:username"]),
+      "/subscriptions/:username/:deviceid": wrap(
         subscriptions["/subscriptions/:username/:deviceid"],
       ),
 
       // Health
-      "/health": loggingMiddleware(health["/health"]),
+      "/health": wrap(health["/health"]),
 
       // bpodder extension APIs
-      "/api/b-ext/config": loggingMiddleware(config["/api/b-ext/config"]),
-      "/api/b-ext/login": loggingMiddleware(auth["/api/b-ext/login"]),
-      "/api/b-ext/register": loggingMiddleware(auth["/api/b-ext/register"]),
-      "/api/b-ext/subscriptions/:username": loggingMiddleware(
+      "/api/b-ext/config": wrap(config["/api/b-ext/config"]),
+      "/api/b-ext/login": wrap(auth["/api/b-ext/login"]),
+      "/api/b-ext/register": wrap(auth["/api/b-ext/register"]),
+      "/api/b-ext/subscriptions/:username": wrap(
         subscriptions["/api/b-ext/subscriptions/:username"],
       ),
-      "/api/b-ext/subscriptions/:username/:deviceid": loggingMiddleware(
+      "/api/b-ext/subscriptions/:username/:deviceid": wrap(
         subscriptions["/api/b-ext/subscriptions/:username/:deviceid"],
       ),
-      "/api/b-ext/episodes/:username": loggingMiddleware(episodes["/api/b-ext/episodes/:username"]),
-      "/api/b-ext/summary/:username": loggingMiddleware(episodes["/api/b-ext/summary/:username"]),
+      "/api/b-ext/episodes/:username": wrap(episodes["/api/b-ext/episodes/:username"]),
+      "/api/b-ext/summary/:username": wrap(episodes["/api/b-ext/summary/:username"]),
 
       // Web app routes - all serve the same homepage, client-side routing will handle the rest
       "/": homepage,
@@ -97,8 +100,8 @@ export function createApp(cfg: Config = config): ReturnType<typeof serve> {
 
     fetch: createDefaultHandler(ctx),
     error: (err) => {
-      logger.error({ err }, "Unhandled error in request handler");
-      return new Response("Internal Server Error", { status: 500 });
+      logger.error({ err }, "Unhandled error outside route middleware");
+      return toErrorResponse(err, logger);
     },
   });
 

@@ -150,6 +150,21 @@ describe("sync-devices", () => {
       expect(res.status).toBe(400);
     });
 
+    test("7a. POST sync with malformed JSON returns 400", async () => {
+      const res = await fetch(`${serverUrl}/api/2/sync-devices/${username}.json`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${alice.username}:${alice.password}`)}`,
+          "Content-Type": "application/json",
+          Cookie: alice.sessionCookie,
+        },
+        body: '{"synchronize":',
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ code: 400, message: "Invalid request body" });
+    });
+
     test("7b. Merge multiple existing sync groups", async () => {
       // Ensure all devices exist (they may not if running test in isolation)
       const devicesRes = await alice.client.get(`/api/2/devices/${username}.json`);

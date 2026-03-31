@@ -104,6 +104,21 @@ describe("devices", () => {
     expect(res.status).toBe(200);
   });
 
+  test("8b. POST device with malformed JSON returns 400", async () => {
+    const res = await fetch(`${serverUrl}/api/2/devices/${alice.username}/broken.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${alice.username}:${alice.password}`)}`,
+        "Content-Type": "application/json",
+        Cookie: alice.sessionCookie,
+      },
+      body: '{"caption":"Broken",',
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: 400, message: "Invalid request body" });
+  });
+
   test("9. GET that device — present with empty/null caption", async () => {
     const res = await alice.client.get(`/api/2/devices/${alice.username}.json`);
     const body =

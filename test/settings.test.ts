@@ -69,6 +69,21 @@ describe("settings", () => {
       expect(body.notifications).toBe(true);
       expect(body.language).toBeUndefined();
     });
+
+    test("POST account settings with malformed JSON returns 400", async () => {
+      const res = await fetch(`${serverUrl}/api/2/settings/${alice.username}/account.json`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${alice.username}:${alice.password}`)}`,
+          "Content-Type": "application/json",
+          Cookie: alice.sessionCookie,
+        },
+        body: '{"set":',
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ code: 400, message: "Invalid request body" });
+    });
   });
 
   describe("device scope", () => {

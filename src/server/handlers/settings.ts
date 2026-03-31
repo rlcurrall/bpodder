@@ -1,13 +1,7 @@
 import { requireAuth } from "@server/lib/auth";
+import { getBody } from "@server/lib/body";
 import { stripExtension } from "@server/lib/params";
-import {
-  options,
-  methodNotAllowed,
-  badRequest,
-  forbidden,
-  serverError,
-  ok,
-} from "@server/lib/response";
+import { options, methodNotAllowed, badRequest, forbidden, ok } from "@server/lib/response";
 import { createRouteHandlerMap } from "@server/lib/routing";
 import {
   SettingsUpdateRequest,
@@ -23,110 +17,83 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
 
     async GET(req) {
-      try {
-        const { value: username } = stripExtension(req.params.username, ["json"]);
-        const { value: scopeRaw } = stripExtension(req.params.scope, ["json"]);
-        const user = await requireAuth(req, ctx.db, ctx.sessions);
+      const { value: username } = stripExtension(req.params.username, ["json"]);
+      const { value: scopeRaw } = stripExtension(req.params.scope, ["json"]);
+      const user = await requireAuth(req, ctx.db, ctx.sessions);
 
-        if (username === "current") {
-          // Continue with current user
-        } else if (username !== user.name) {
-          return forbidden("Access denied");
-        }
-
-        if (!isValidScope(scopeRaw)) {
-          return badRequest(`Invalid scope: must be one of ${validScopes.join(", ")}`);
-        }
-        const scope = scopeRaw;
-
-        const query = new URL(req.url).searchParams;
-        const { scopeId, error: scopeError } = buildScopeId(scope, query);
-        if (scopeError) return scopeError;
-
-        const settings = getSettings(ctx, { userId: user.id, scope, scopeId });
-        return ok(SettingsResponse.parse(settings));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "Get settings handler error");
-        return serverError("Server error");
+      if (username === "current") {
+        // Continue with current user
+      } else if (username !== user.name) {
+        return forbidden("Access denied");
       }
+
+      if (!isValidScope(scopeRaw)) {
+        return badRequest(`Invalid scope: must be one of ${validScopes.join(", ")}`);
+      }
+      const scope = scopeRaw;
+
+      const query = new URL(req.url).searchParams;
+      const { scopeId, error: scopeError } = buildScopeId(scope, query);
+      if (scopeError) return scopeError;
+
+      const settings = getSettings(ctx, { userId: user.id, scope, scopeId });
+      return ok(SettingsResponse.parse(settings));
     },
 
     async POST(req) {
-      try {
-        const { value: username } = stripExtension(req.params.username, ["json"]);
-        const { value: scopeRaw } = stripExtension(req.params.scope, ["json"]);
-        const user = await requireAuth(req, ctx.db, ctx.sessions);
+      const { value: username } = stripExtension(req.params.username, ["json"]);
+      const { value: scopeRaw } = stripExtension(req.params.scope, ["json"]);
+      const user = await requireAuth(req, ctx.db, ctx.sessions);
 
-        if (username === "current") {
-          // Continue with current user
-        } else if (username !== user.name) {
-          return forbidden("Access denied");
-        }
-
-        if (!isValidScope(scopeRaw)) {
-          return badRequest(`Invalid scope: must be one of ${validScopes.join(", ")}`);
-        }
-        const scope = scopeRaw;
-
-        const query = new URL(req.url).searchParams;
-        const { scopeId, error: scopeError } = buildScopeId(scope, query);
-        if (scopeError) return scopeError;
-
-        const rawBody = await req.json().catch(() => ({}));
-
-        const body = SettingsUpdateRequest.safeParse(rawBody);
-
-        if (!body.success) {
-          return badRequest("Invalid request body");
-        }
-
-        const set =
-          typeof body.data.set === "object" &&
-          body.data.set !== null &&
-          !Array.isArray(body.data.set)
-            ? body.data.set
-            : {};
-        const remove =
-          Array.isArray(body.data.remove) &&
-          body.data.remove.every((r: unknown) => typeof r === "string")
-            ? body.data.remove
-            : [];
-
-        ctx.db.transaction(() => {
-          // Handle removals
-          for (const key of remove) {
-            ctx.db.run(
-              "DELETE FROM settings WHERE user = ? AND scope = ? AND scope_id = ? AND key = ?",
-              user.id,
-              scope,
-              scopeId,
-              key,
-            );
-          }
-
-          // Handle upserts
-          for (const [key, value] of Object.entries(set)) {
-            const valueJson = JSON.stringify(value);
-            ctx.db.run(
-              `INSERT INTO settings (user, scope, scope_id, key, value) VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(user, scope, scope_id, key) DO UPDATE SET value = excluded.value`,
-              user.id,
-              scope,
-              scopeId,
-              key,
-              valueJson,
-            );
-          }
-        });
-
-        const settings = getSettings(ctx, { userId: user.id, scope, scopeId });
-        return ok(SettingsResponse.parse(settings));
-      } catch (e) {
-        if (e instanceof Response) return e;
-        ctx.logger.error({ err: e }, "Post settings handler error");
-        return serverError("Server error");
+      if (username === "current") {
+        // Continue with current user
+      } else if (username !== user.name) {
+        return forbidden("Access denied");
       }
+
+      if (!isValidScope(scopeRaw)) {
+        return badRequest(`Invalid scope: must be one of ${validScopes.join(", ")}`);
+      }
+      const scope = scopeRaw;
+
+      const query = new URL(req.url).searchParams;
+      const { scopeId, error: scopeError } = buildScopeId(scope, query);
+      if (scopeError) return scopeError;
+
+      const body = await getBody(req, SettingsUpdateRequest);
+
+      const set = body.set ?? {};
+      const remove = body.remove ?? [];
+
+      ctx.db.transaction(() => {
+        // Handle removals
+        for (const key of remove) {
+          ctx.db.run(
+            "DELETE FROM settings WHERE user = ? AND scope = ? AND scope_id = ? AND key = ?",
+            user.id,
+            scope,
+            scopeId,
+            key,
+          );
+        }
+
+        // Handle upserts
+        for (const [key, value] of Object.entries(set)) {
+          const valueJson = JSON.stringify(value);
+          ctx.db.run(
+            `INSERT INTO settings (user, scope, scope_id, key, value) VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user, scope, scope_id, key) DO UPDATE SET value = excluded.value`,
+            user.id,
+            scope,
+            scopeId,
+            key,
+            valueJson,
+          );
+        }
+      });
+
+      const settings = getSettings(ctx, { userId: user.id, scope, scopeId });
+      return ok(SettingsResponse.parse(settings));
     },
   },
 }));
