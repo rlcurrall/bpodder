@@ -31,7 +31,11 @@ export class Client {
     });
   }
 
-  async get(path: string, params?: Record<string, string>): Promise<Response> {
+  async get(
+    path: string,
+    params?: Record<string, string>,
+    options?: { headers?: Record<string, string> },
+  ): Promise<Response> {
     const url = new URL(path, this.base);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -39,9 +43,11 @@ export class Client {
       });
     }
 
+    const headers = { ...this.headers, ...options?.headers };
+
     return fetch(url.toString(), {
       method: "GET",
-      headers: this.headers,
+      headers,
     });
   }
 
@@ -93,7 +99,9 @@ export class Client {
         }
         requestBody = body;
       } else {
-        headers["Content-Type"] = "application/json";
+        if (!headers["Content-Type"]) {
+          headers["Content-Type"] = "application/json";
+        }
         requestBody = JSON.stringify(body);
       }
     }

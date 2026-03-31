@@ -1,5 +1,6 @@
 import { requireAuth } from "@server/lib/auth";
 import { backgroundFetchFeed } from "@server/lib/feed-fetcher";
+import { resolveSimpleApiFormats } from "@server/lib/negotiation";
 import { parseOPML } from "@server/lib/opml";
 import { stripExtension } from "@server/lib/params";
 import { getFirstSearchParam } from "@server/lib/query";
@@ -12,6 +13,8 @@ import {
   empty,
   badRequest,
   notFound,
+  jsonp,
+  xml,
 } from "@server/lib/response";
 import { createRouteHandlerMap } from "@server/lib/routing";
 import { decodeSubscriptionCursor } from "@server/lib/subscription-pagination";
@@ -30,6 +33,7 @@ import {
   isHttpUrl,
 } from "@shared/schemas/index";
 import { PaginatedResponseSchema } from "@shared/schemas/pagination";
+import { XMLBuilder } from "fast-xml-parser";
 import { z } from "zod/v4";
 
 export default createRouteHandlerMap((ctx) => ({
@@ -235,7 +239,7 @@ export default createRouteHandlerMap((ctx) => ({
     },
   },
 
-  // Simple API user-level: GET /subscriptions/:username (returns .json or .opml)
+  // Simple API user-level: GET /subscriptions/:username (returns .json, .jsonp, .opml, or .xml)
   "/subscriptions/:username": {
     OPTIONS: options(["GET", "OPTIONS"]),
     PUT: methodNotAllowed(),
@@ -244,11 +248,44 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username, ext } = stripExtension(req.params.username, ["json", "opml"]);
+        const { value: username } = stripExtension(
+          req.params.username,
+          simpleApiUserResponseFormats,
+        );
+        const { responseFormat } = resolveSimpleApiFormats(req, {
+          responseFormats: simpleApiUserResponseFormats,
+        });
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
-        if (ext === "opml") {
+        const url = new URL(req.url);
+        const jsonpCallback = url.searchParams.get("jsonp");
+
+        if (responseFormat === "jsonp") {
+          const validation = validateJsonpCallback(jsonpCallback);
+          if (!validation.valid) {
+            return badRequest(validation.error);
+          }
+          const callback = jsonpCallback;
+          const subs = ctx.db.all<{ url: string }>(
+            "SELECT DISTINCT url FROM subscriptions WHERE user = ? AND deleted = 0",
+            user.id,
+          );
+          const response = SubscriptionListResponse.parse(subs.map((s) => s.url));
+          return jsonp(response, callback!);
+        }
+
+        if (responseFormat === "opml") {
           return opml(buildOPML(ctx, { userId: user.id }));
+        }
+
+        if (responseFormat === "xml") {
+          const subs = ctx.db.all<{ url: string; data: string | null }>(
+            "SELECT url, data FROM subscriptions WHERE user = ? AND deleted = 0",
+            user.id,
+          );
+          // Dedupe by URL, preferring rows with data (title/author info)
+          const dedupedSubs = dedupeSubscriptionsByUrl(subs);
+          return xml(buildSubscriptionXML(dedupedSubs));
         }
 
         const subs = ctx.db.all<{ url: string }>(
@@ -276,7 +313,10 @@ export default createRouteHandlerMap((ctx) => ({
       const rawUsername = req.params.username;
       const rawDeviceid = req.params.deviceid;
       const { value: username } = stripExtension(rawUsername);
-      const { value: deviceid, ext } = stripExtension(rawDeviceid, ["json", "txt", "opml"]);
+      const { value: deviceid } = stripExtension(rawDeviceid, simpleApiDeviceResponseFormats);
+      const { responseFormat } = resolveSimpleApiFormats(req, {
+        responseFormats: simpleApiDeviceResponseFormats,
+      });
 
       try {
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
@@ -291,7 +331,25 @@ export default createRouteHandlerMap((ctx) => ({
           return notFound("Device not found");
         }
 
-        if (ext === "txt") {
+        const url = new URL(req.url);
+        const jsonpCallback = url.searchParams.get("jsonp");
+
+        if (responseFormat === "jsonp") {
+          const validation = validateJsonpCallback(jsonpCallback);
+          if (!validation.valid) {
+            return badRequest(validation.error);
+          }
+          const callback = jsonpCallback;
+          const subs = ctx.db.all<{ url: string }>(
+            "SELECT url FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
+            user.id,
+            device.id,
+          );
+          const response = SubscriptionListResponse.parse(subs.map((s) => s.url));
+          return jsonp(response, callback!);
+        }
+
+        if (responseFormat === "txt") {
           const subs = ctx.db.all<{ url: string }>(
             "SELECT url FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
             user.id,
@@ -300,8 +358,17 @@ export default createRouteHandlerMap((ctx) => ({
           return ok(subs.map((s) => s.url).join("\n"));
         }
 
-        if (ext === "opml") {
+        if (responseFormat === "opml") {
           return opml(buildOPML(ctx, { userId: user.id, devicePk: device.id }));
+        }
+
+        if (responseFormat === "xml") {
+          const subs = ctx.db.all<{ url: string; data: string | null }>(
+            "SELECT url, data FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
+            user.id,
+            device.id,
+          );
+          return xml(buildSubscriptionXML(subs));
         }
 
         // Default JSON
@@ -323,7 +390,10 @@ export default createRouteHandlerMap((ctx) => ({
       const rawUsername = req.params.username;
       const rawDeviceid = req.params.deviceid;
       const { value: username } = stripExtension(rawUsername);
-      const { value: deviceid, ext } = stripExtension(rawDeviceid, ["json", "txt", "opml"]);
+      const { value: deviceid } = stripExtension(rawDeviceid, simpleApiUploadFormats);
+      const { requestFormat } = resolveSimpleApiFormats(req, {
+        requestFormats: simpleApiUploadFormats,
+      });
 
       try {
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
@@ -332,13 +402,13 @@ export default createRouteHandlerMap((ctx) => ({
 
         let urls: string[] = [];
 
-        if (ext === "txt") {
+        if (requestFormat === "txt") {
           const body = await req.text();
           urls = body
             .split("\n")
             .map((u) => u.trim())
             .filter((u) => u && isHttpUrl(u));
-        } else if (ext === "opml") {
+        } else if (requestFormat === "opml") {
           // OPML upload - parse XML and extract feed URLs
           const body = await req.text();
           urls = parseOPML(body).filter((u) => isHttpUrl(u));
@@ -497,17 +567,116 @@ export default createRouteHandlerMap((ctx) => ({
   },
 }));
 
-const opmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
-<opml version="1.0">
-  <head>
-    <title>Subscriptions</title>
-  </head>
-  <body>
-`;
-
 function sanitizeUrl(url: string): { url: string; modified: boolean } {
   const trimmed = url.trim();
   return { url: trimmed, modified: trimmed !== url };
+}
+
+// Dedupe subscriptions by URL, preferring rows with metadata
+function dedupeSubscriptionsByUrl(
+  subs: { url: string; data: string | null }[],
+): { url: string; data: string | null }[] {
+  const seen = new Map<string, { url: string; data: string | null }>();
+
+  for (const sub of subs) {
+    const existing = seen.get(sub.url);
+    if (!existing) {
+      seen.set(sub.url, sub);
+    } else if (!existing.data && sub.data) {
+      // Prefer subscription with metadata (title/author info)
+      seen.set(sub.url, sub);
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+// Valid characters for JSONP callback function names
+const ALLOWED_JSONP_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+const simpleApiUserResponseFormats = ["json", "jsonp", "opml", "xml"] as const;
+const simpleApiDeviceResponseFormats = ["json", "jsonp", "txt", "opml", "xml"] as const;
+const simpleApiUploadFormats = ["json", "txt", "opml"] as const;
+
+const SubscriptionMetadataSchema = z
+  .object({
+    title: z.string().optional(),
+    website: z.string().optional(),
+    author: z.string().optional(),
+    description: z.string().optional(),
+  })
+  .loose();
+
+const xmlBuilder = new XMLBuilder({
+  ignoreAttributes: false,
+  format: true,
+  suppressEmptyNode: true,
+});
+
+const opmlBuilder = new XMLBuilder({
+  ignoreAttributes: false,
+  format: true,
+  suppressEmptyNode: false,
+});
+
+function parseSubscriptionMetadata(
+  data: string | null,
+): z.infer<typeof SubscriptionMetadataSchema> | null {
+  if (!data) return null;
+
+  try {
+    const result = SubscriptionMetadataSchema.safeParse(JSON.parse(data));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function validateJsonpCallback(
+  callback: string | null,
+): { valid: true } | { valid: false; error: string } {
+  if (!callback) {
+    return {
+      valid: false,
+      error:
+        "For a JSONP response, specify the name of the callback function in the jsonp parameter",
+    };
+  }
+
+  for (const char of callback) {
+    if (!ALLOWED_JSONP_CHARS.includes(char)) {
+      return {
+        valid: false,
+        error: `JSONP padding can only contain the characters ${ALLOWED_JSONP_CHARS}`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+// Build XML response for subscription list
+function buildSubscriptionXML(subs: Array<{ url: string; data?: string | null }>): string {
+  const podcasts = subs.map((sub) => {
+    const metadata = parseSubscriptionMetadata(sub.data ?? null);
+
+    return {
+      title: metadata?.title ?? sub.url,
+      url: sub.url,
+      ...(metadata?.website ? { website: metadata.website } : {}),
+      ...(metadata?.author ? { author: metadata.author } : {}),
+      ...(metadata?.description ? { description: metadata.description } : {}),
+    };
+  });
+
+  return xmlBuilder.build({
+    "?xml": {
+      "@_version": "1.0",
+      "@_encoding": "UTF-8",
+    },
+    podcasts: {
+      podcast: podcasts,
+    },
+  });
 }
 
 // Shared logic for adding subscriptions
@@ -596,26 +765,32 @@ function buildOPML(
   }
 
   const subs = ctx.db.all<{ url: string; data: string | null }>(sql, ...params);
+  const body =
+    subs.length === 0
+      ? {}
+      : {
+          outline: subs.map((sub) => {
+            const title = parseSubscriptionMetadata(sub.data)?.title ?? sub.url;
+            return {
+              "@_type": "rss",
+              "@_xmlUrl": sub.url,
+              "@_title": title,
+              "@_text": title,
+            };
+          }),
+        };
 
-  let opmlContent = opmlHeader;
-
-  for (const sub of subs) {
-    let title = sub.url;
-    try {
-      if (sub.data) {
-        const data = z.record(z.string(), z.any()).safeParse(JSON.parse(sub.data));
-        if (data.success && data.data.title) title = data.data.title;
-      }
-    } catch {
-      // ignore
-    }
-
-    const escapedUrl = sub.url.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-    const escapedTitle = title.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-
-    opmlContent += `    <outline type="rss" xmlUrl="${escapedUrl}" title="${escapedTitle}" text="${escapedTitle}" />\n`;
-  }
-
-  opmlContent += `  </body>\n</opml>\n`;
-  return opmlContent;
+  return opmlBuilder.build({
+    "?xml": {
+      "@_version": "1.0",
+      "@_encoding": "UTF-8",
+    },
+    opml: {
+      "@_version": "1.0",
+      head: {
+        title: "Subscriptions",
+      },
+      body,
+    },
+  });
 }

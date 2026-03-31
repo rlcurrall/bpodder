@@ -58,6 +58,22 @@ export function text(body: string, status = 200): Response {
   });
 }
 
+export function jsonp(data: unknown, callback: string, status = 200): Response {
+  const json = JSON.stringify(data);
+  const body = `${callback}(${json})`;
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "application/javascript; charset=utf-8", ...CORS },
+  });
+}
+
+export function xml(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "application/xml; charset=utf-8", ...CORS },
+  });
+}
+
 export function options(methods: Bun.Serve.HTTPMethod[] = []): Response {
   const allow = methods.length > 0 ? methods.join(", ") : "GET, POST, PUT, DELETE, OPTIONS";
   return new Response(null, {

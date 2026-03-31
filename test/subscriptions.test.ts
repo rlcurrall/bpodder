@@ -1,9 +1,51 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { XMLParser } from "fast-xml-parser";
 
 import { Client } from "./helpers/client";
 import { startMockRssServer, type MockRssServer } from "./helpers/mock-rss";
 import { getServerUrl } from "./helpers/server";
 import { createTestUser, type TestUser } from "./helpers/setup";
+
+type PodcastXml = {
+  title?: string;
+  url?: string;
+  website?: string;
+  author?: string;
+  description?: string;
+};
+
+type PodcastsXmlDocument = {
+  podcasts?: {
+    podcast?: PodcastXml | PodcastXml[];
+  };
+};
+
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  processEntities: true,
+  trimValues: true,
+});
+
+function parsePodcastsXml(xmlText: string): PodcastXml[] {
+  const parsed = xmlParser.parse(xmlText) as PodcastsXmlDocument;
+  const podcasts = parsed.podcasts?.podcast;
+
+  if (!podcasts) {
+    throw new Error(`Invalid podcasts XML: ${xmlText}`);
+  }
+
+  return Array.isArray(podcasts) ? podcasts : [podcasts];
+}
+
+function extractPodcastUrls(xmlText: string): string[] {
+  return parsePodcastsXml(xmlText)
+    .map((podcast) => podcast.url)
+    .filter((url): url is string => typeof url === "string");
+}
+
+function countPodcastElements(xmlText: string): number {
+  return parsePodcastsXml(xmlText).length;
+}
 
 const urlA = "https://feeds.example.com/feedA.xml";
 const urlB = "https://feeds.example.com/feedB.xml";
@@ -699,6 +741,366 @@ describe("subscriptions", () => {
       expect(res.status).toBe(200);
       const body = await res.text();
       expect(body).toBe("");
+    });
+  });
+
+  describe("Simple API - JSONP and XML formats", () => {
+    interface FormatTestContext {
+      user: TestUser;
+      username: string;
+      deviceId: string;
+    }
+
+    async function createTestUserWithDevice(serverUrl: string): Promise<FormatTestContext> {
+      const testUsername = `format_test_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const user = await createTestUser(serverUrl, {
+        username: testUsername,
+        password: "password123",
+      });
+      const deviceId = "test-device";
+
+      await user.client.post(`/api/2/devices/${user.username}/${deviceId}.json`, {
+        caption: "Test Device",
+        type: "mobile",
+      });
+
+      return { user, username: user.username, deviceId };
+    }
+
+    let ctx: FormatTestContext;
+
+    beforeEach(async () => {
+      ctx = await createTestUserWithDevice(serverUrl);
+    });
+
+    describe("JSONP format", () => {
+      test("returns subscription list wrapped in callback", async () => {
+        const testUrls = [
+          "https://feeds.example.com/jsonp-feed-a.xml",
+          "https://feeds.example.com/jsonp-feed-b.xml",
+        ];
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, testUrls);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}.jsonp?jsonp=myCallback`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/javascript");
+
+        const body = await res.text();
+        expect(body.startsWith("myCallback(")).toBe(true);
+        expect(body.endsWith(")")).toBe(true);
+
+        const jsonContent = body.slice("myCallback(".length, -1);
+        const data = JSON.parse(jsonContent);
+        expect(Array.isArray(data)).toBe(true);
+        expect(data).toContain(testUrls[0]);
+        expect(data).toContain(testUrls[1]);
+      });
+
+      test("rejects invalid callback characters", async () => {
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}.jsonp?jsonp=!invalid`,
+        );
+        expect(res.status).toBe(400);
+      });
+
+      test("requires callback parameter", async () => {
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}.jsonp`,
+        );
+        expect(res.status).toBe(400);
+      });
+
+      test("allows underscore in callback name", async () => {
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [
+          "https://example.com/feed.xml",
+        ]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}.jsonp?jsonp=my_callback`,
+        );
+        expect(res.status).toBe(200);
+        const body = await res.text();
+        expect(body.startsWith("my_callback(")).toBe(true);
+      });
+
+      test("ignores jsonp param on json endpoint", async () => {
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [
+          "https://example.com/feed.xml",
+        ]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}.json?jsonp=myCallback`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/json");
+
+        const body = await res.text();
+        expect(body.startsWith("myCallback(")).toBe(false);
+      });
+
+      test("works for user-level endpoint", async () => {
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [
+          "https://example.com/feed.xml",
+        ]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}.jsonp?jsonp=handleData`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/javascript");
+
+        const body = await res.text();
+        expect(body.startsWith("handleData(")).toBe(true);
+      });
+    });
+
+    describe("XML format", () => {
+      test("returns device subscriptions as structured XML", async () => {
+        const testUrls = [
+          "https://feeds.example.com/xml-feed-a.xml",
+          "https://feeds.example.com/xml-feed-b.xml",
+        ];
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, testUrls);
+
+        const res = await ctx.user.client.get(`/subscriptions/${ctx.username}/${ctx.deviceId}.xml`);
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/xml");
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+
+        expect(countPodcastElements(body)).toBe(2);
+        expect(urls).toContain(testUrls[0]);
+        expect(urls).toContain(testUrls[1]);
+      });
+
+      test("returns all user subscriptions as XML for user-level endpoint", async () => {
+        const testUrl = "https://feeds.example.com/user-level-feed.xml";
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [testUrl]);
+
+        const res = await ctx.user.client.get(`/subscriptions/${ctx.username}.xml`);
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/xml");
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+
+        expect(urls).toContain(testUrl);
+      });
+
+      test("respects Accept header for XML format", async () => {
+        const testUrl = "https://feeds.example.com/accept-header-feed.xml";
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [testUrl]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}`,
+          undefined,
+          {
+            headers: { Accept: "application/xml" },
+          },
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/xml");
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+
+        expect(urls).toContain(testUrl);
+      });
+
+      test("respects text/xml Accept header for XML format", async () => {
+        const testUrl = "https://feeds.example.com/text-xml-feed.xml";
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [testUrl]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}`,
+          undefined,
+          {
+            headers: { Accept: "text/xml" },
+          },
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/xml");
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+
+        expect(urls).toContain(testUrl);
+      });
+
+      test("respects Accept header for user-level endpoint", async () => {
+        const testUrl = "https://feeds.example.com/user-accept-feed.xml";
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [testUrl]);
+
+        const res = await ctx.user.client.get(`/subscriptions/${ctx.username}`, undefined, {
+          headers: { Accept: "application/xml" },
+        });
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/xml");
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+
+        expect(urls).toContain(testUrl);
+      });
+
+      test("explicit extension takes precedence over Accept header", async () => {
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [
+          "https://example.com/feed.xml",
+        ]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}.json`,
+          undefined,
+          {
+            headers: { Accept: "application/xml" },
+          },
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/json");
+
+        const body = await res.text();
+        expect(body.startsWith("[")).toBe(true);
+      });
+
+      test("prefers higher-priority JSON accept type over XML", async () => {
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [
+          "https://example.com/feed.xml",
+        ]);
+
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/${ctx.deviceId}`,
+          undefined,
+          {
+            headers: { Accept: "application/json;q=1, application/xml;q=0.5" },
+          },
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toContain("application/json");
+
+        const body = await res.text();
+        expect(body.startsWith("[")).toBe(true);
+      });
+
+      test("escapes special XML characters", async () => {
+        const specialUrl = "https://example.com/feed?param=value&other=test";
+        await ctx.user.client.put(`/subscriptions/${ctx.username}/${ctx.deviceId}.json`, [
+          specialUrl,
+        ]);
+
+        const res = await ctx.user.client.get(`/subscriptions/${ctx.username}/${ctx.deviceId}.xml`);
+        expect(res.status).toBe(200);
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+
+        expect(body).toContain("?param=value&amp;other=test");
+        expect(urls).toContain(specialUrl);
+      });
+
+      test("dedupes URLs across multiple devices for user-level endpoint", async () => {
+        const tabletDevice = "tablet-dedupe";
+        await ctx.user.client.post(`/api/2/devices/${ctx.username}/${tabletDevice}.json`, {
+          caption: "Tablet",
+          type: "mobile",
+        });
+
+        const sharedUrl = `https://dedupe-test-${Date.now()}.example.com/feed.xml`;
+        await ctx.user.client.post(`/api/2/subscriptions/${ctx.username}/${ctx.deviceId}.json`, {
+          add: [sharedUrl],
+          remove: [],
+        });
+        await ctx.user.client.post(`/api/2/subscriptions/${ctx.username}/${tabletDevice}.json`, {
+          add: [sharedUrl],
+          remove: [],
+        });
+
+        const res = await ctx.user.client.get(`/subscriptions/${ctx.username}.xml`);
+        expect(res.status).toBe(200);
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+        const occurrences = urls.filter((url) => url === sharedUrl).length;
+
+        expect(occurrences).toBe(1);
+      });
+
+      test("dedupes correctly with Accept header", async () => {
+        const tabletDevice = "tablet-dedupe-accept";
+        await ctx.user.client.post(`/api/2/devices/${ctx.username}/${tabletDevice}.json`, {
+          caption: "Tablet",
+          type: "mobile",
+        });
+
+        const sharedUrl = `https://dedupe-accept-${Date.now()}.example.com/feed.xml`;
+        await ctx.user.client.post(`/api/2/subscriptions/${ctx.username}/${ctx.deviceId}.json`, {
+          add: [sharedUrl],
+          remove: [],
+        });
+        await ctx.user.client.post(`/api/2/subscriptions/${ctx.username}/${tabletDevice}.json`, {
+          add: [sharedUrl],
+          remove: [],
+        });
+
+        const res = await ctx.user.client.get(`/subscriptions/${ctx.username}`, undefined, {
+          headers: { Accept: "application/xml" },
+        });
+        expect(res.status).toBe(200);
+
+        const body = await res.text();
+        const urls = extractPodcastUrls(body);
+        const occurrences = urls.filter((url) => url === sharedUrl).length;
+
+        expect(occurrences).toBe(1);
+      });
+
+      test("returns 404 for unknown device", async () => {
+        const res = await ctx.user.client.get(
+          `/subscriptions/${ctx.username}/nonexistent-device.xml`,
+        );
+        expect(res.status).toBe(404);
+      });
+    });
+  });
+
+  describe("Simple API - Request and Response Formats", () => {
+    let ctx: { user: TestUser; username: string; deviceId: string };
+
+    beforeEach(async () => {
+      const testUsername = `format_io_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const user = await createTestUser(serverUrl, {
+        username: testUsername,
+        password: "password123",
+      });
+      const deviceId = "io-device";
+
+      await user.client.post(`/api/2/devices/${user.username}/${deviceId}.json`, {
+        caption: "IO Device",
+        type: "mobile",
+      });
+
+      ctx = { user, username: user.username, deviceId };
+    });
+
+    test("PUT parses JSON body based on Content-Type even on .opml path", async () => {
+      const feedUrl = "https://feeds.example.com/content-type-json.xml";
+
+      const putRes = await ctx.user.client.put(
+        `/subscriptions/${ctx.username}/${ctx.deviceId}.opml`,
+        [feedUrl],
+        { headers: { "Content-Type": "application/json" } },
+      );
+      expect(putRes.status).toBe(200);
+
+      const getRes = await ctx.user.client.get(
+        `/subscriptions/${ctx.username}/${ctx.deviceId}.json`,
+      );
+      expect(getRes.status).toBe(200);
+
+      const urls = (await getRes.json()) as string[];
+      expect(urls).toContain(feedUrl);
     });
   });
 
