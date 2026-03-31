@@ -5,12 +5,7 @@ import {
   type SubscriptionSortDirType,
 } from "@shared/schemas/index";
 
-export class SubscriptionCursorError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SubscriptionCursorError";
-  }
-}
+import { AppError } from "./errors";
 
 export function encodeSubscriptionCursor(
   by: SubscriptionSortByType,
@@ -31,16 +26,18 @@ export function decodeSubscriptionCursor(
   try {
     decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
   } catch {
-    throw new SubscriptionCursorError("Invalid cursor format");
+    throw new AppError("pagination.invalid_cursor", { message: "Invalid cursor format" });
   }
 
   const result = RawSubscriptionCursorSchema.safeParse(decoded);
   if (!result.success) {
-    throw new SubscriptionCursorError("Invalid cursor payload");
+    throw new AppError("pagination.invalid_cursor", { message: "Invalid cursor payload" });
   }
 
   if (result.data.by !== by || result.data.dir !== dir) {
-    throw new SubscriptionCursorError("Cursor sort does not match request sort");
+    throw new AppError("pagination.invalid_cursor", {
+      message: "Cursor sort does not match request sort",
+    });
   }
 
   return result.data;
