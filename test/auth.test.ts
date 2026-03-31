@@ -36,6 +36,17 @@ describe("auth", () => {
     expect(res.status).toBe(401);
   });
 
+  test("3b. POST b-ext login with wrong password does not challenge browser", async () => {
+    const client = new Client(serverUrl);
+    const res = await client.post("/api/b-ext/login", {
+      username: "alice",
+      password: "wrongpassword",
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get("WWW-Authenticate")).toBeNull();
+  });
+
   test("4. POST login with no Authorization header", async () => {
     const client = new Client(serverUrl);
     const res = await client.post("/api/2/auth/alice/login.json");
