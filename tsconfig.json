@@ -15,12 +15,13 @@
     "jsxImportSource": "preact",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
+    "allowJs": false,
     "types": ["bun-types"],
     "paths": {
       "@server/*": ["./src/server/*"],
       "@shared/*": ["./src/shared/*"],
       "@web/*": ["./src/web/*"]
     }
-  }
+  },
+  "exclude": ["dist", "node_modules"]
 }
