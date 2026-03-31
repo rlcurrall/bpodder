@@ -1,6 +1,6 @@
 import { requireAuth } from "@server/lib/auth";
 import { decodeCursor, CursorError } from "@server/lib/pagination";
-import { parseParam } from "@server/lib/params";
+import { stripExtension } from "@server/lib/params";
 import {
   badRequest,
   options,
@@ -31,7 +31,7 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
     async GET(req) {
       const rawUsername = req.params.username;
-      const { value: username } = parseParam(rawUsername, ["json"]);
+      const { value: username } = stripExtension(rawUsername, ["json"]);
 
       if (!username) {
         return notFound("Invalid route");
@@ -171,7 +171,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async POST(req) {
       const rawUsername = req.params.username;
-      const { value: username } = parseParam(rawUsername, ["json"]);
+      const { value: username } = stripExtension(rawUsername, ["json"]);
 
       if (!username) {
         return notFound("Invalid route");
@@ -343,7 +343,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         const url = new URL(req.url);
@@ -403,7 +403,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         const result = await getUserSummary(ctx.db, user.id);

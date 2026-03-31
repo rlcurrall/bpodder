@@ -1,7 +1,7 @@
 import { requireAuth } from "@server/lib/auth";
 import { backgroundFetchFeed } from "@server/lib/feed-fetcher";
 import { parseOPML } from "@server/lib/opml";
-import { parseParam } from "@server/lib/params";
+import { stripExtension } from "@server/lib/params";
 import { getFirstSearchParam } from "@server/lib/query";
 import {
   opml,
@@ -41,7 +41,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       const username = req.params.username;
-      const { value: deviceid } = parseParam(req.params.deviceid, ["json"]);
+      const { value: deviceid } = stripExtension(req.params.deviceid, ["json"]);
 
       try {
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
@@ -93,7 +93,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async POST(req) {
       const username = req.params.username;
-      const { value: deviceid } = parseParam(req.params.deviceid, ["json"]);
+      const { value: deviceid } = stripExtension(req.params.deviceid, ["json"]);
 
       try {
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
@@ -217,7 +217,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         const subs = ctx.db.all<{ url: string }>(
@@ -244,7 +244,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username, ext } = parseParam(req.params.username, ["json", "opml"]);
+        const { value: username, ext } = stripExtension(req.params.username, ["json", "opml"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         if (ext === "opml") {
@@ -275,8 +275,8 @@ export default createRouteHandlerMap((ctx) => ({
     async GET(req) {
       const rawUsername = req.params.username;
       const rawDeviceid = req.params.deviceid;
-      const { value: username } = parseParam(rawUsername);
-      const { value: deviceid, ext } = parseParam(rawDeviceid, ["json", "txt", "opml"]);
+      const { value: username } = stripExtension(rawUsername);
+      const { value: deviceid, ext } = stripExtension(rawDeviceid, ["json", "txt", "opml"]);
 
       try {
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
@@ -322,8 +322,8 @@ export default createRouteHandlerMap((ctx) => ({
     async PUT(req) {
       const rawUsername = req.params.username;
       const rawDeviceid = req.params.deviceid;
-      const { value: username } = parseParam(rawUsername);
-      const { value: deviceid, ext } = parseParam(rawDeviceid, ["json", "txt", "opml"]);
+      const { value: username } = stripExtension(rawUsername);
+      const { value: deviceid, ext } = stripExtension(rawDeviceid, ["json", "txt", "opml"]);
 
       try {
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
@@ -384,7 +384,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         const url = new URL(req.url);
@@ -438,8 +438,8 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
-        const { value: deviceid } = parseParam(req.params.deviceid, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
+        const { value: deviceid } = stripExtension(req.params.deviceid, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions, username);
 
         const device = ctx.db.first<{

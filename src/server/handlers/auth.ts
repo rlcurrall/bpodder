@@ -9,7 +9,7 @@ import {
 import { z } from "zod/v4";
 
 import { requireAuth, createSessionCookie, clearSessionCookie } from "../lib/auth";
-import { parseParam } from "../lib/params";
+import { stripExtension } from "../lib/params";
 import {
   badRequest,
   forbidden,
@@ -30,7 +30,7 @@ export default createRouteHandlerMap((ctx) => ({
     DELETE: methodNotAllowed(),
     async POST(req) {
       const username = req.params.username;
-      const { value: action } = parseParam(req.params.action, ["json"]);
+      const { value: action } = stripExtension(req.params.action, ["json"]);
 
       if (!username || !action) {
         return notFound("Invalid route");

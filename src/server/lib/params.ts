@@ -1,9 +1,12 @@
-// Parse a route param that may contain a file extension.
+// Strip a known file extension from a route param.
 // e.g. "phone.json" -> { value: "phone", ext: "json" }
 // e.g. "alice.opml" -> { value: "alice", ext: "opml" }
 // e.g. "login.json" -> { value: "login", ext: "json" }
 // e.g. "alice"      -> { value: "alice", ext: "" }
-export function parseParam(raw: string, knownExts?: string[]): { value: string; ext: string } {
+export function stripExtension(
+  raw: string,
+  knownExts?: readonly string[],
+): { value: string; ext: string } {
   const dotIndex = raw.lastIndexOf(".");
   if (dotIndex === -1) {
     return { value: raw, ext: "" };

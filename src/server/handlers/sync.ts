@@ -1,5 +1,5 @@
 import { requireAuth } from "@server/lib/auth";
-import { parseParam } from "@server/lib/params";
+import { stripExtension } from "@server/lib/params";
 import {
   options,
   methodNotAllowed,
@@ -19,7 +19,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async GET(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username === "current") {
@@ -39,7 +39,7 @@ export default createRouteHandlerMap((ctx) => ({
 
     async POST(req) {
       try {
-        const { value: username } = parseParam(req.params.username, ["json"]);
+        const { value: username } = stripExtension(req.params.username, ["json"]);
         const user = await requireAuth(req, ctx.db, ctx.sessions);
 
         if (username === "current") {

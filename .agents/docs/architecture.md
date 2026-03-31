@@ -18,5 +18,5 @@ Each domain has a factory: `createXxxHandlers(ctx: AppContext)` returns route de
 - `data` JSON columns merged into result rows via `db.queryWithData()`
 - URL username `current` resolves to authenticated user
 - Multi-row writes wrapped in `ctx.db.transaction()`
-- File extensions (.json/.opml/.txt) stripped via `parseParam()` since GPodder clients encode format in the URL
+- File extensions (.json/.opml/.txt) stripped via `stripExtension()` since GPodder clients encode format in the URL
 - Sessions stored in separate SQLite DB (`data/sessions.sqlite`) with LRU cache
