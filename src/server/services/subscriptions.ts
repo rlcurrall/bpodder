@@ -5,9 +5,17 @@ import type {
   SubscriptionSortDirType,
 } from "@shared/schemas/subscriptions";
 
+import { isHttpUrl } from "@shared/schemas/index";
+
 import { encodeSubscriptionCursor, SubscriptionCursorError } from "../lib/subscription-pagination";
 
 export { SubscriptionCursorError };
+
+export class SubscriptionSyncValidationError extends Error {}
+
+export interface SubscriptionDeviceRow {
+  id: number;
+}
 
 export interface ListSubscriptionsOptions {
   userId: number;
@@ -231,7 +239,7 @@ async function listDeviceSubscriptions(
   }
 
   const totalCountRow = db.first<{ total: number }>(
-    `SELECT COUNT(*) AS total 
+    `SELECT COUNT(*) AS total
      FROM subscriptions s
      LEFT JOIN feeds f ON s.feed = f.id
      WHERE s.user = ? AND s.device = ? AND s.deleted = 0${totalFilterClause}`,
@@ -257,4 +265,300 @@ async function listDeviceSubscriptions(
       total_count: totalCountRow?.total ?? 0,
     },
   };
+}
+
+// ============================================================================
+// Device Management for Subscription Flows
+// ============================================================================
+
+export function ensureSubscriptionDevice(
+  db: AppDatabase,
+  options: { userId: number; deviceId: string },
+): number {
+  const { userId, deviceId } = options;
+
+  db.run(
+    `INSERT INTO devices (user, deviceid, caption, type, data)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user, deviceid) DO NOTHING`,
+    userId,
+    deviceId,
+    null,
+    "other",
+    null,
+  );
+
+  const device = db.first<{ id: number }>(
+    "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
+    userId,
+    deviceId,
+  );
+
+  return device!.id;
+}
+
+export function findSubscriptionDevice(
+  db: AppDatabase,
+  options: { userId: number; deviceId: string },
+): SubscriptionDeviceRow | null {
+  const { userId, deviceId } = options;
+
+  return (
+    db.first<SubscriptionDeviceRow>(
+      "SELECT id FROM devices WHERE user = ? AND deviceid = ?",
+      userId,
+      deviceId,
+    ) ?? null
+  );
+}
+
+// ============================================================================
+// Delta Sync Operations
+// ============================================================================
+
+export interface SubscriptionDelta {
+  add: string[];
+  remove: string[];
+}
+
+export function getSubscriptionDelta(
+  db: AppDatabase,
+  options: { userId: number; devicePk: number; since: number },
+): SubscriptionDelta {
+  const { userId, devicePk, since } = options;
+
+  const subs = db.all<{
+    url: string;
+    deleted: number;
+    changed: number;
+  }>(
+    "SELECT url, deleted, changed FROM subscriptions WHERE user = ? AND device = ? AND changed >= ?",
+    userId,
+    devicePk,
+    since,
+  );
+
+  const add: string[] = [];
+  const remove: string[] = [];
+
+  for (const sub of subs) {
+    if (sub.deleted) {
+      remove.push(sub.url);
+    } else {
+      add.push(sub.url);
+    }
+  }
+
+  return { add, remove };
+}
+
+export interface SyncSubscriptionDeltaOptions {
+  userId: number;
+  devicePk: number;
+  add: string[];
+  remove: string[];
+  timestamp: number;
+}
+
+export interface SyncSubscriptionDeltaResult {
+  timestamp: number;
+  updateUrls: Array<[string, string]>;
+  addedFetchUrls: string[];
+}
+
+function sanitizeUrl(url: string): { url: string; modified: boolean } {
+  const trimmed = url.trim();
+  return { url: trimmed, modified: trimmed !== url };
+}
+
+export function syncSubscriptionDelta(
+  db: AppDatabase,
+  options: SyncSubscriptionDeltaOptions,
+): SyncSubscriptionDeltaResult {
+  const { userId, devicePk, add: addList, remove: removeList, timestamp } = options;
+
+  const addedUrls = new Set(addList);
+  for (const url of removeList) {
+    if (addedUrls.has(url)) {
+      throw new SubscriptionSyncValidationError("URL in both add and remove");
+    }
+  }
+
+  const updateUrls: Array<[string, string]> = [];
+  const addedFetchUrls: string[] = [];
+
+  db.transaction(() => {
+    for (const u of addList) {
+      const sanitized = sanitizeUrl(u);
+      if (sanitized.modified) {
+        updateUrls.push([u, sanitized.url]);
+      }
+
+      if (!isHttpUrl(sanitized.url)) {
+        updateUrls.push([sanitized.url, ""]);
+        continue;
+      }
+
+      const existing = db.first<{ id: number; deleted: number }>(
+        "SELECT id, deleted FROM subscriptions WHERE user = ? AND device = ? AND url = ?",
+        userId,
+        devicePk,
+        sanitized.url,
+      );
+
+      if (existing) {
+        if (existing.deleted) {
+          db.run(
+            "UPDATE subscriptions SET deleted = 0, changed = ? WHERE id = ?",
+            timestamp,
+            existing.id,
+          );
+        } else {
+          db.run("UPDATE subscriptions SET changed = ? WHERE id = ?", timestamp, existing.id);
+        }
+      } else {
+        db.run(
+          "INSERT INTO subscriptions (user, device, feed, url, deleted, changed, data) VALUES (?, ?, NULL, ?, 0, ?, NULL)",
+          userId,
+          devicePk,
+          sanitized.url,
+          timestamp,
+        );
+      }
+
+      addedFetchUrls.push(sanitized.url);
+    }
+
+    for (const u of removeList) {
+      const sanitized = sanitizeUrl(u);
+      if (sanitized.modified) {
+        updateUrls.push([u, sanitized.url]);
+      }
+
+      if (!isHttpUrl(sanitized.url)) {
+        updateUrls.push([sanitized.url, ""]);
+        continue;
+      }
+
+      db.run(
+        "UPDATE subscriptions SET deleted = 1, changed = ? WHERE user = ? AND device = ? AND url = ?",
+        timestamp,
+        userId,
+        devicePk,
+        sanitized.url,
+      );
+    }
+  });
+
+  return { timestamp, updateUrls, addedFetchUrls };
+}
+
+// ============================================================================
+// Additive Subscription Operations
+// ============================================================================
+
+export function addDeviceSubscriptions(
+  db: AppDatabase,
+  options: {
+    userId: number;
+    devicePk: number;
+    urls: string[];
+    timestamp: number;
+  },
+): string[] {
+  const { userId, devicePk, urls, timestamp } = options;
+  const acceptedUrls: string[] = [];
+
+  db.transaction(() => {
+    for (const url of urls) {
+      if (!isHttpUrl(url)) continue;
+
+      const existing = db.first<{ id: number; deleted: number }>(
+        "SELECT id, deleted FROM subscriptions WHERE user = ? AND device = ? AND url = ?",
+        userId,
+        devicePk,
+        url,
+      );
+
+      if (existing) {
+        if (existing.deleted) {
+          db.run(
+            "UPDATE subscriptions SET deleted = 0, changed = ? WHERE id = ?",
+            timestamp,
+            existing.id,
+          );
+        } else {
+          db.run("UPDATE subscriptions SET changed = ? WHERE id = ?", timestamp, existing.id);
+        }
+      } else {
+        db.run(
+          "INSERT INTO subscriptions (user, device, feed, url, deleted, changed, data) VALUES (?, ?, NULL, ?, 0, ?, NULL)",
+          userId,
+          devicePk,
+          url,
+          timestamp,
+        );
+      }
+
+      acceptedUrls.push(url);
+    }
+  });
+
+  return acceptedUrls;
+}
+
+// ============================================================================
+// List Query Functions
+// ============================================================================
+
+export function listUserSubscriptionUrls(db: AppDatabase, userId: number): string[] {
+  const subs = db.all<{ url: string }>(
+    "SELECT DISTINCT url FROM subscriptions WHERE user = ? AND deleted = 0",
+    userId,
+  );
+
+  return subs.map((s) => s.url);
+}
+
+export function listDeviceSubscriptionUrls(
+  db: AppDatabase,
+  options: { userId: number; devicePk: number },
+): string[] {
+  const { userId, devicePk } = options;
+
+  const subs = db.all<{ url: string }>(
+    "SELECT url FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
+    userId,
+    devicePk,
+  );
+
+  return subs.map((s) => s.url);
+}
+
+export interface SubscriptionFeedRow {
+  url: string;
+  data: string | null;
+}
+
+export function listUserSubscriptionFeedRows(
+  db: AppDatabase,
+  userId: number,
+): SubscriptionFeedRow[] {
+  return db.all<SubscriptionFeedRow>(
+    "SELECT url, data FROM subscriptions WHERE user = ? AND deleted = 0",
+    userId,
+  );
+}
+
+export function listDeviceSubscriptionFeedRows(
+  db: AppDatabase,
+  options: { userId: number; devicePk: number },
+): SubscriptionFeedRow[] {
+  const { userId, devicePk } = options;
+
+  return db.all<SubscriptionFeedRow>(
+    "SELECT url, data FROM subscriptions WHERE user = ? AND device = ? AND deleted = 0",
+    userId,
+    devicePk,
+  );
 }
