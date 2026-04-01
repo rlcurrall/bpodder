@@ -16,7 +16,6 @@ const PAGE_SIZE = 10;
 
 export function useSubscriptions(deviceId?: string | null, filters?: SubscriptionFilters) {
   const { username } = useAuth();
-  const queryClient = useQueryClient();
 
   const queryKey = [
     "subscriptions",
@@ -27,24 +26,12 @@ export function useSubscriptions(deviceId?: string | null, filters?: Subscriptio
     filters?.sort?.dir ?? null,
   ] as const;
 
-  const query = usePaginatedQuery({
+  return usePaginatedQuery({
     queryKey,
     queryFn: (cursor) =>
       getSubscriptionsPage(username!, deviceId ?? null, cursor, PAGE_SIZE, filters),
     enabled: !!username,
   });
-
-  const reset = () => {
-    query.reset();
-    void queryClient.invalidateQueries({
-      queryKey: ["subscriptions", username, deviceId ?? "all"],
-    });
-  };
-
-  return {
-    ...query,
-    reset,
-  };
 }
 
 export function useSubscribe() {

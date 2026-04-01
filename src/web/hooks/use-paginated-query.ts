@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/preact-query";
-import { useEffect, useState } from "preact/hooks";
+import { useInfiniteQuery } from "@tanstack/preact-query";
 
 export interface PaginatedPage<TItem> {
   items: TItem[];
@@ -20,68 +19,31 @@ export function usePaginatedQuery<TItem>({
   queryFn,
   enabled,
 }: UsePaginatedQueryOptions<TItem>) {
-  const [loadedItems, setLoadedItems] = useState<TItem[]>([]);
-  const [hasNextPage, setHasNextPage] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
-
-  // Reset local pagination state immediately when the logical query changes.
-  const keyHash = JSON.stringify(queryKey);
-
-  useEffect(() => {
-    setLoadedItems([]);
-    setHasNextPage(false);
-    setNextCursor(null);
-    setTotalCount(null);
-  }, [keyHash]);
-
-  const query = useQuery<PaginatedPage<TItem>, Error>({
-    queryKey,
-    queryFn: () => queryFn(null),
+  const query = useInfiniteQuery({
+    queryKey: [...queryKey],
+    queryFn: ({ pageParam }) => queryFn(pageParam as string | null),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.page.next_cursor,
     enabled,
   });
 
-  useEffect(() => {
-    if (!query.data) return;
-
-    setLoadedItems(query.data.items);
-    setHasNextPage(query.data.page.next_cursor !== null);
-    setNextCursor(query.data.page.next_cursor);
-    setTotalCount(query.data.page.total_count);
-  }, [query.data]);
-
-  const fetchNextPage = async () => {
-    if (!nextCursor) return;
-
-    setIsFetchingNextPage(true);
-    try {
-      const response = await queryFn(nextCursor);
-      setLoadedItems((prev) => [...prev, ...response.items]);
-      setHasNextPage(response.page.next_cursor !== null);
-      setNextCursor(response.page.next_cursor);
-      setTotalCount(response.page.total_count);
-    } finally {
-      setIsFetchingNextPage(false);
-    }
+  const flattenPages = () => {
+    if (!query.data) return [];
+    return query.data.pages.flatMap((page) => page.items);
   };
 
-  const reset = () => {
-    setLoadedItems([]);
-    setHasNextPage(false);
-    setNextCursor(null);
-    setTotalCount(null);
-  };
+  const lastPage = query.data?.pages[query.data.pages.length - 1];
+  const hasNextPage = lastPage?.page.next_cursor !== null;
+  const totalCount = lastPage?.page.total_count ?? null;
 
   return {
-    data: loadedItems,
+    data: flattenPages(),
     totalCount,
     hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    fetchNextPage: query.fetchNextPage,
     isPending: query.isPending,
     error: query.error,
     refetch: query.refetch,
-    reset,
   };
 }
