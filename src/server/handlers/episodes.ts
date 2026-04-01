@@ -6,6 +6,7 @@ import { decodeCursor } from "@server/lib/pagination";
 import { stripExtension } from "@server/lib/params";
 import { badRequest, options, methodNotAllowed, notFound, ok } from "@server/lib/response";
 import { createRouteHandlerMap } from "@server/lib/routing";
+import { normalizeTimestamp } from "@server/lib/timestamp";
 import {
   toEpisodeActionPageResponse,
   toEpisodeActionResponse,
@@ -177,25 +178,4 @@ function toEpisodeActionInput(action: {
     total: action.total,
     metadata: { guid, ...extra },
   };
-}
-
-function normalizeTimestamp(ts: string | number | undefined): number | undefined {
-  if (ts === undefined) {
-    return undefined;
-  }
-
-  if (typeof ts === "number") {
-    return Math.floor(ts);
-  }
-
-  if (/^\d+$/.test(ts)) {
-    return Math.floor(parseInt(ts, 10));
-  }
-
-  const parsed = new Date(ts);
-  if (isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  return Math.floor(parsed.getTime() / 1000);
 }

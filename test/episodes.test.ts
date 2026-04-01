@@ -195,6 +195,55 @@ describe("episodes", () => {
       expect(action?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}/);
     });
 
+    test("9b. POST action with ISO timestamp without timezone (AntennaPod style) interpreted as UTC", async () => {
+      // AntennaPod sends timestamps like "2026-03-30T12:34:56" without trailing Z.
+      // These should be interpreted as UTC, not local server time.
+      const expectedUnix = new Date("2026-03-30T12:34:56Z").getTime() / 1000;
+
+      const res = await alice.client.post(`/api/2/episodes/${username}.json`, [
+        {
+          podcast: podcastUrl,
+          episode: "http://example.com/ep-antennapod-utc.mp3",
+          action: "download",
+          device: deviceId,
+          timestamp: "2026-03-30T12:34:56", // No timezone offset - should be UTC
+        },
+      ]);
+      expect(res.status).toBe(200);
+
+      const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const body = await alice.client.json<EpisodesResponse>(getRes);
+      const action = body.actions.find(
+        (a) => a.episode === "http://example.com/ep-antennapod-utc.mp3",
+      );
+      // Verify the timestamp is stored as the intended UTC instant
+      const returnedUnix = new Date(action?.timestamp ?? "").getTime() / 1000;
+      expect(returnedUnix).toBe(expectedUnix);
+    });
+
+    test("9c. POST action with fractional ISO timestamp without timezone interpreted as UTC", async () => {
+      const expectedTimestamp = "2026-03-30T12:34:56Z";
+
+      const res = await alice.client.post(`/api/2/episodes/${username}.json`, [
+        {
+          podcast: podcastUrl,
+          episode: "http://example.com/ep-antennapod-utc-fractional.mp3",
+          action: "download",
+          device: deviceId,
+          timestamp: "2026-03-30T12:34:56.789",
+        },
+      ]);
+      expect(res.status).toBe(200);
+
+      const getRes = await alice.client.get(`/api/2/episodes/${username}.json`, { since: "0" });
+      const body = await alice.client.json<EpisodesResponse>(getRes);
+      const action = body.actions.find(
+        (a) => a.episode === "http://example.com/ep-antennapod-utc-fractional.mp3",
+      );
+      // Episode actions are stored and serialized at whole-second precision.
+      expect(action?.timestamp).toBe(expectedTimestamp);
+    });
+
     test("10. POST action with extra unknown fields", async () => {
       const res = await alice.client.post(`/api/2/episodes/${username}.json`, [
         {
