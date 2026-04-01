@@ -1,12 +1,10 @@
-import type { EpisodeActionWithIdType } from "@shared/schemas/episodes";
-import type { SummaryResponseType } from "@shared/schemas/summary";
+import type { EpisodeActionRecord } from "@services/episodes/types";
+
+import type { UserSummary } from "./types";
 
 const RECENT_EPISODES_LIMIT = 10;
 
-export async function getUserSummary(
-  db: AppDatabase,
-  userId: number,
-): Promise<SummaryResponseType> {
+export async function getUserSummary(db: AppDatabase, userId: number): Promise<UserSummary> {
   // Device count
   const deviceCountRow = db.first<{ count: number }>(
     "SELECT COUNT(*) AS count FROM devices WHERE user = ?",
@@ -53,39 +51,37 @@ export async function getUserSummary(
     RECENT_EPISODES_LIMIT,
   );
 
-  const recentEpisodes: EpisodeActionWithIdType[] = recentRows.map((row) => {
-    const action: EpisodeActionWithIdType = {
-      id: row.id,
-      podcast: row.podcast ?? "",
-      episode: row.episode,
-      action: row.action,
-      timestamp: formatTimestamp(row.timestamp),
-    };
-
-    if (row.position !== null) action.position = row.position;
-    if (row.started !== null) action.started = row.started;
-    if (row.total !== null) action.total = row.total;
-    if (row.device) action.device = row.device;
-
-    if (row.data) {
-      try {
-        const data = JSON.parse(row.data);
-        Object.assign(action, data);
-      } catch {
-        // ignore
-      }
-    }
-
-    return action;
-  });
+  const recentEpisodes: Array<EpisodeActionRecord & { id: number }> = recentRows.map((row) => ({
+    id: row.id,
+    podcastUrl: row.podcast,
+    episodeUrl: row.episode,
+    kind: row.action,
+    occurredAtUnix: row.timestamp,
+    position: row.position,
+    started: row.started,
+    total: row.total,
+    deviceId: row.device,
+    metadata: parseMetadata(row.data),
+  }));
 
   return {
-    device_count: deviceCountRow?.count ?? 0,
-    subscription_count: subscriptionCountRow?.count ?? 0,
-    recent_episodes: recentEpisodes,
+    deviceCount: deviceCountRow?.count ?? 0,
+    subscriptionCount: subscriptionCountRow?.count ?? 0,
+    recentEpisodes,
   };
 }
 
-function formatTimestamp(unix: number): string {
-  return new Date(unix * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+function parseMetadata(data: string | null): Record<string, unknown> | null {
+  if (!data) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(data);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
 }

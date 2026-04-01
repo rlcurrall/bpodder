@@ -1,39 +1,26 @@
-import type { PaginatedResponseType } from "@shared/schemas/pagination";
 import type {
-  SubscriptionCursorType,
-  SubscriptionSortByType,
-  SubscriptionSortDirType,
-} from "@shared/schemas/subscriptions";
+  ListSubscriptionsOptions,
+  SubscriptionDelta,
+  SubscriptionDeviceRow,
+  SubscriptionFeedRow,
+  SubscriptionPage,
+  SubscriptionPageCursor,
+  SubscriptionSortBy,
+  SubscriptionSortDir,
+  SyncSubscriptionDeltaResult,
+  UrlRewrite,
+} from "./types";
+
+export type { SubscriptionSortBy, SubscriptionSortDir } from "./types";
 
 import { isHttpUrl } from "@shared/schemas/index";
 
-import { AppError } from "../lib/errors";
-import { encodeSubscriptionCursor } from "../lib/subscription-pagination";
-
-export interface SubscriptionDeviceRow {
-  id: number;
-}
-
-export interface ListSubscriptionsOptions {
-  userId: number;
-  deviceId?: number;
-  limit: number;
-  cursor: SubscriptionCursorType | null;
-  q?: string;
-  sortBy: SubscriptionSortByType;
-  sortDir: SubscriptionSortDirType;
-}
-
-export interface SubscriptionRow {
-  url: string;
-  title: string | null;
-  image_url: string | null;
-}
+import { AppError } from "../../lib/errors";
 
 export async function listSubscriptionsPaginated(
   db: AppDatabase,
   options: ListSubscriptionsOptions,
-): Promise<PaginatedResponseType<SubscriptionRow>> {
+): Promise<SubscriptionPage> {
   const { userId, deviceId, limit, cursor, q, sortBy, sortDir } = options;
 
   if (deviceId === undefined) {
@@ -43,7 +30,7 @@ export async function listSubscriptionsPaginated(
   return listDeviceSubscriptions(db, userId, deviceId, limit, cursor, q, sortBy, sortDir);
 }
 
-function getSortSpec(sortBy: SubscriptionSortByType, sortDir: SubscriptionSortDirType) {
+function getSortSpec(sortBy: SubscriptionSortBy, sortDir: SubscriptionSortDir) {
   const compareOp = sortDir === "asc" ? ">" : "<";
   const orderDir = sortDir.toUpperCase();
 
@@ -77,11 +64,11 @@ async function listAllDevicesSubscriptions(
   db: AppDatabase,
   userId: number,
   limit: number,
-  cursor: SubscriptionCursorType | null,
+  cursor: SubscriptionPageCursor | null,
   q?: string,
-  sortBy: SubscriptionSortByType = "changed",
-  sortDir: SubscriptionSortDirType = "desc",
-): Promise<PaginatedResponseType<SubscriptionRow>> {
+  sortBy: SubscriptionSortBy = "changed",
+  sortDir: SubscriptionSortDir = "desc",
+): Promise<SubscriptionPage> {
   const sortSpec = getSortSpec(sortBy, sortDir);
   let cursorClause = "";
   let filterClause = "";
@@ -129,13 +116,7 @@ async function listAllDevicesSubscriptions(
   );
 
   const hasMore = rows.length > limit;
-  const items: Array<{
-    url: string;
-    title: string | null;
-    image_url: string | null;
-    sort_primary: number | string;
-    rn_id: number;
-  }> = hasMore ? rows.slice(0, -1) : rows;
+  const items = hasMore ? rows.slice(0, -1) : rows;
 
   let totalFilterClause = "";
   if (q) {
@@ -154,22 +135,25 @@ async function listAllDevicesSubscriptions(
     ...filterParams,
   );
 
-  let nextCursor: string | null = null;
+  let nextCursor: SubscriptionPageCursor | null = null;
   if (hasMore && items.length > 0) {
     const last = items[items.length - 1];
-    nextCursor = encodeSubscriptionCursor(sortBy, sortDir, last.sort_primary, last.rn_id);
+    nextCursor = {
+      sortBy,
+      sortDir,
+      primary: last.sort_primary,
+      id: last.rn_id,
+    };
   }
 
   return {
     items: items.map((row) => ({
       url: row.url,
       title: row.title,
-      image_url: row.image_url,
+      imageUrl: row.image_url,
     })),
-    page: {
-      next_cursor: nextCursor,
-      total_count: totalCountRow?.total ?? 0,
-    },
+    nextCursor,
+    totalCount: totalCountRow?.total ?? 0,
   };
 }
 
@@ -178,11 +162,11 @@ async function listDeviceSubscriptions(
   userId: number,
   deviceId: number,
   limit: number,
-  cursor: SubscriptionCursorType | null,
+  cursor: SubscriptionPageCursor | null,
   q?: string,
-  sortBy: SubscriptionSortByType = "changed",
-  sortDir: SubscriptionSortDirType = "desc",
-): Promise<PaginatedResponseType<SubscriptionRow>> {
+  sortBy: SubscriptionSortBy = "changed",
+  sortDir: SubscriptionSortDir = "desc",
+): Promise<SubscriptionPage> {
   const sortSpec = getSortSpec(sortBy, sortDir);
   let cursorClause = "";
   let filterClause = "";
@@ -222,13 +206,7 @@ async function listDeviceSubscriptions(
   );
 
   const hasMore = rows.length > limit;
-  const items: Array<{
-    url: string;
-    title: string | null;
-    image_url: string | null;
-    sort_primary: number | string;
-    id: number;
-  }> = hasMore ? rows.slice(0, -1) : rows;
+  const items = hasMore ? rows.slice(0, -1) : rows;
 
   let totalFilterClause = "";
   if (q) {
@@ -245,22 +223,25 @@ async function listDeviceSubscriptions(
     ...filterParams,
   );
 
-  let nextCursor: string | null = null;
+  let nextCursor: SubscriptionPageCursor | null = null;
   if (hasMore && items.length > 0) {
     const last = items[items.length - 1];
-    nextCursor = encodeSubscriptionCursor(sortBy, sortDir, last.sort_primary, last.id);
+    nextCursor = {
+      sortBy,
+      sortDir,
+      primary: last.sort_primary,
+      id: last.id,
+    };
   }
 
   return {
     items: items.map((row) => ({
       url: row.url,
       title: row.title,
-      image_url: row.image_url,
+      imageUrl: row.image_url,
     })),
-    page: {
-      next_cursor: nextCursor,
-      total_count: totalCountRow?.total ?? 0,
-    },
+    nextCursor,
+    totalCount: totalCountRow?.total ?? 0,
   };
 }
 
@@ -313,11 +294,6 @@ export function findSubscriptionDevice(
 // Delta Sync Operations
 // ============================================================================
 
-export interface SubscriptionDelta {
-  add: string[];
-  remove: string[];
-}
-
 export function getSubscriptionDelta(
   db: AppDatabase,
   options: { userId: number; devicePk: number; since: number },
@@ -349,20 +325,6 @@ export function getSubscriptionDelta(
   return { add, remove };
 }
 
-export interface SyncSubscriptionDeltaOptions {
-  userId: number;
-  devicePk: number;
-  add: string[];
-  remove: string[];
-  timestamp: number;
-}
-
-export interface SyncSubscriptionDeltaResult {
-  timestamp: number;
-  updateUrls: Array<[string, string]>;
-  addedFetchUrls: string[];
-}
-
 function sanitizeUrl(url: string): { url: string; modified: boolean } {
   const trimmed = url.trim();
   return { url: trimmed, modified: trimmed !== url };
@@ -370,7 +332,13 @@ function sanitizeUrl(url: string): { url: string; modified: boolean } {
 
 export function syncSubscriptionDelta(
   db: AppDatabase,
-  options: SyncSubscriptionDeltaOptions,
+  options: {
+    userId: number;
+    devicePk: number;
+    add: string[];
+    remove: string[];
+    timestamp: number;
+  },
 ): SyncSubscriptionDeltaResult {
   const { userId, devicePk, add: addList, remove: removeList, timestamp } = options;
 
@@ -381,18 +349,18 @@ export function syncSubscriptionDelta(
     }
   }
 
-  const updateUrls: Array<[string, string]> = [];
+  const rewrites: UrlRewrite[] = [];
   const addedFetchUrls: string[] = [];
 
   db.transaction(() => {
     for (const u of addList) {
       const sanitized = sanitizeUrl(u);
       if (sanitized.modified) {
-        updateUrls.push([u, sanitized.url]);
+        rewrites.push({ from: u, to: sanitized.url });
       }
 
       if (!isHttpUrl(sanitized.url)) {
-        updateUrls.push([sanitized.url, ""]);
+        rewrites.push({ from: sanitized.url, to: "" });
         continue;
       }
 
@@ -429,11 +397,11 @@ export function syncSubscriptionDelta(
     for (const u of removeList) {
       const sanitized = sanitizeUrl(u);
       if (sanitized.modified) {
-        updateUrls.push([u, sanitized.url]);
+        rewrites.push({ from: u, to: sanitized.url });
       }
 
       if (!isHttpUrl(sanitized.url)) {
-        updateUrls.push([sanitized.url, ""]);
+        rewrites.push({ from: sanitized.url, to: "" });
         continue;
       }
 
@@ -447,7 +415,7 @@ export function syncSubscriptionDelta(
     }
   });
 
-  return { timestamp, updateUrls, addedFetchUrls };
+  return { timestamp, rewrites, addedFetchUrls };
 }
 
 // ============================================================================
@@ -530,11 +498,6 @@ export function listDeviceSubscriptionUrls(
   );
 
   return subs.map((s) => s.url);
-}
-
-export interface SubscriptionFeedRow {
-  url: string;
-  data: string | null;
 }
 
 export function listUserSubscriptionFeedRows(

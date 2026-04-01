@@ -5,7 +5,7 @@ import {
   type SubscriptionSortDirType,
 } from "@shared/schemas/index";
 
-import { AppError } from "./errors";
+import { AppError } from "../../lib/errors";
 
 export function encodeSubscriptionCursor(
   by: SubscriptionSortByType,

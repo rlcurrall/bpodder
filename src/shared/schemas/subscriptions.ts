@@ -63,6 +63,8 @@ export const SubscriptionListQuerySchema = z.object({
 
 export type SubscriptionSyncRequestType = z.infer<typeof SubscriptionSyncRequest>;
 export type SubscriptionReplaceRequestType = z.infer<typeof SubscriptionReplaceRequest>;
+export type SubscriptionDeltaResponseType = z.infer<typeof SubscriptionDeltaResponse>;
+export type SubscriptionUploadResponseType = z.infer<typeof SubscriptionUploadResponse>;
 export type SubscriptionItemType = z.infer<typeof SubscriptionItem>;
 export type SubscriptionListQueryType = z.infer<typeof SubscriptionListQuerySchema>;
 export type SubscriptionSortByType = z.infer<typeof SubscriptionSortBySchema>;

@@ -24,13 +24,17 @@ import {
   validateJsonpCallback,
 } from "@server/lib/subscription-format";
 import { decodeSubscriptionCursor } from "@server/lib/subscription-pagination";
-import * as subscriptions from "@server/services/subscriptions";
+import {
+  toSubscriptionDeltaResponse,
+  toSubscriptionPageResponse,
+  toSubscriptionUploadResponse,
+} from "@server/presenters/subscriptions";
+import * as subscriptions from "@services/subscriptions";
 import {
   SubscriptionItem,
   SubscriptionReplaceRequest,
   SubscriptionSyncRequest,
   SubscriptionDeltaResponse,
-  SubscriptionUploadResponse,
   SubscriptionListResponse,
   SubscriptionListQuerySchema,
   isHttpUrl,
@@ -65,11 +69,9 @@ export default createRouteHandlerMap((ctx) => ({
       });
 
       const timestamp = Math.floor(Date.now() / 1000);
-      const response = SubscriptionDeltaResponse.parse({
-        ...delta,
-        timestamp,
-        update_urls: [],
-      });
+      const response = SubscriptionDeltaResponse.parse(
+        toSubscriptionDeltaResponse(delta, timestamp),
+      );
       return ok(response);
     },
 
@@ -99,10 +101,7 @@ export default createRouteHandlerMap((ctx) => ({
         backgroundFetchFeed(ctx.db, ctx.logger, url);
       }
 
-      const response = SubscriptionUploadResponse.parse({
-        timestamp: result.timestamp,
-        update_urls: result.updateUrls,
-      });
+      const response = toSubscriptionUploadResponse(result);
       return ok(response);
     },
   },
@@ -330,13 +329,22 @@ export default createRouteHandlerMap((ctx) => ({
       const result = await subscriptions.listSubscriptionsPaginated(ctx.db, {
         userId: user.id,
         limit,
-        cursor,
+        cursor: cursor
+          ? {
+              sortBy,
+              sortDir,
+              primary: cursor.primary,
+              id: cursor.id,
+            }
+          : null,
         q,
-        sortBy,
-        sortDir,
+        sortBy: sortBy as subscriptions.SubscriptionSortBy,
+        sortDir: sortDir as subscriptions.SubscriptionSortDir,
       });
 
-      const response = PaginatedResponseSchema(SubscriptionItem).parse(result);
+      const response = PaginatedResponseSchema(SubscriptionItem).parse(
+        toSubscriptionPageResponse(result),
+      );
       return ok(response);
     },
   },
@@ -378,13 +386,22 @@ export default createRouteHandlerMap((ctx) => ({
         userId: user.id,
         deviceId: device.id,
         limit,
-        cursor,
+        cursor: cursor
+          ? {
+              sortBy,
+              sortDir,
+              primary: cursor.primary,
+              id: cursor.id,
+            }
+          : null,
         q,
-        sortBy,
-        sortDir,
+        sortBy: sortBy as subscriptions.SubscriptionSortBy,
+        sortDir: sortDir as subscriptions.SubscriptionSortDir,
       });
 
-      const response = PaginatedResponseSchema(SubscriptionItem).parse(result);
+      const response = PaginatedResponseSchema(SubscriptionItem).parse(
+        toSubscriptionPageResponse(result),
+      );
       return ok(response);
     },
   },

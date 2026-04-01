@@ -2,37 +2,8 @@ import { z } from "zod/v4";
 
 import type { Logger } from "./logger";
 
+import { isAppError, type AppErrorCode } from "../../lib/errors";
 import { badRequest, serverError } from "./response";
-
-// Error codes used across the application
-// Use dotted namespace format: domain.specific_error
-export type AppErrorCode =
-  | "subscriptions.url_in_both_add_and_remove"
-  | "subscriptions.device_not_found"
-  | "pagination.invalid_cursor"
-  | "request.invalid_json";
-
-/**
- * Application error with stable error code.
- * Services throw these to indicate business/application failures.
- * The error middleware translates these into HTTP responses.
- */
-export class AppError extends Error {
-  constructor(
-    public readonly code: AppErrorCode,
-    public readonly details?: Record<string, unknown>,
-  ) {
-    super(code);
-    this.name = "AppError";
-  }
-}
-
-/**
- * Type guard to check if an error is an AppError
- */
-export function isAppError(err: unknown): err is AppError {
-  return err instanceof AppError;
-}
 
 /**
  * Mapping from error codes to HTTP status codes and user-facing messages.

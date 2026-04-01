@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 
-import { AppError } from "./errors";
+import { AppError } from "../../lib/errors";
 
 export async function getBody<TSchema extends z.ZodType>(
   req: Request,
